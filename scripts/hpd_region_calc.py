@@ -223,5 +223,18 @@ class Dirichlet_Distribution:
         sidelength = mp.sqrt((x_1 - x_0)**2 + (y_1-y_0)**2)
         return self.area * sidelength**2
 
+    #function for getting the local (within a subtriangle) barycentric coordinates given the parent BC triangle coords
+    def localBCfromRefBC(self,subtriangle, bc):
+        lambdas = [toMpMath(bc[i]) for i in bc]
+
+        mu_0 = (lambdas[0] * self.vertices[subtriangle[0]][0]) + (lambdas[1] * self.vertices[subtriangle[1]][0])\
+                + (lambdas[2] * self.vertices[subtriangle[2]][0]) 
+        mu_1 = (lambdas[0] * self.vertices[subtriangle[0]][1]) + (lambdas[1] * self.vertices[subtriangle[1]][1])\
+                + (lambdas[2] * self.vertices[subtriangle[2]][1])
+        mu_2 = (lambdas[0] * self.vertices[subtriangle[0]][2]) + (lambdas[1] * self.vertices[subtriangle[1]][2])\
+                + (lambdas[2] * self.vertices[subtriangle[2]][2])
+
+        return [mu_0, mu_1, mu_2]
+
 if __name__ == "__main__":
     main()
