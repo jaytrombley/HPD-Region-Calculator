@@ -87,7 +87,59 @@ def dirichletpdf(x, alpha):
         a0 += alpha[i]
         g_prod *= gm(alpha[i])
     g0 = gm(a0)
-    beta_func = g0 / g_prod
+    beta_func = g0 / g_prod #beta function
     dirpdf = prod * beta_func * (mp.mpf('0.5') / area)
 
     return dirpdf
+
+class Dirichlet_Distribution:
+
+    #mesh properties
+    vertices = [] #store BC vertices of each subtriangle, starting with (0,0,1), going right to left, bottom to top
+    triangles = [] #store subtriangles by their vertex indices
+    index_vert = [] #index for keeping track of vertices; index(0,0,1) = 0
+
+    #this array stores relevant information about the mesh and distribution
+    #the i-th entry will be [prob mass of subtriangle i, vertex indices of subtriangle, ...
+        # ..., number of nodes (out of 13) in the HPD region, T/F on whether the subtriangle is split]
+    sub_info = []
+
+    #distribution parameters
+    alphas = [0, 0, 0]
+
+    #resolution of mesh, tanh-sinh step, domain area
+    res = 0
+    res_ts = 0
+    area = mp.mpf('0.5') * (mp.sqrt(mp.mpf('3'))/2)
+
+    '''
+    Roots/nodes of the Dunavant 13-point (7-degree) rule. These are the simplex-specific barycentric coordinates for Gaussian quadrature, precalculated.
+    The paper is called "HIGH DEGREE EFFICIENT SYMMETRICAL GAUSSIAN QUADRATURE RULES FOR THE TRIANGLE" by D. A. Dunavant.
+    To use this, conceptualize the symmetric group S3; Each coordinate (node) is of the form [ralpha, rbeta, rgamma]. 
+    The first column represents the identity permutation coordinate (1/3, 1/3, 1/3) in the center of the triangle.
+    The second column represents three nodes, any permutation of (0.479, 0.260, 0.260).
+    The third column, same thing, three nodes of some permutation of (0.86, 0.06, 0.06)
+    The last column represents six nodes, as there are six different permutations of these three distinct barycentric coordinates. 
+    Hence, these represent the 13 distinct nodes that will be sampled in every smooth subtriangle.
+    '''
+    ralpha = [toMpMath(1/3), mp.mpf('0.479308067841920'),  mp.mpf('0.869739794195568'),  mp.mpf('0.048690315425316')]
+    rbeta = [toMpMath(1/3),  mp.mpf('0.260345966079040'),  mp.mpf('0.065130102902216'),  mp.mpf('0.312865496004874')]
+    rgamma = [toMpMath(1/3), mp.mpf('0.260345966079040'), mp.mpf('0.065130102902216'), mp.mpf('0.638444188569810')]
+
+    #weights at the nodes above. Each column from above will use the weight corresponding the the column below.
+    #for example, the point (1/3, 1/3, 1/3) on each subtriangle will have the weight -0.14957...
+    weights = [mp.mpf('-0.149570044467682'),  mp.mpf('0.175615257433208'),  mp.mpf('0.053347235608838'),  mp.mpf('0.077113760890257')]
+
+    #mass of the domain, for accountability purposes after performing all calculations
+    mass = 0
+
+    #parameter for s, t-domain. These are the roughly-picked intervals on the real lines that go into our u-v unit square as a result of the tanh-sinh function.
+    t_extrema = 2
+    s_max = 3.64
+    s_min = 2.4
+
+    #stores subtriangle and its variance in an array for determining which triangles to use tah-sinh on.
+    subtriangle_variance = []
+
+    #iterator check: 0=first pass, 1=second pass, 2=3rd pass. This is for if we decide to do a subtriangle division after one 'pass', or pdf calculation across the domain.
+    iterator = 0
