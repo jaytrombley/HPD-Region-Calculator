@@ -69,3 +69,25 @@ def bc2uv(x):
         v = (x[1] / (1 - x[0]))
         return [u, v]
 
+#function to calculate the dirichlet pdf at a given BC coordinate
+def dirichletpdf(x, alpha):
+    x = [toMpMath(i) for i in x]
+    alpha = [toMpMath(j) for j in alpha]
+
+    prod = 1 #for Dirichlet kernel \prod(x_1^alpha_i)
+    a0 = 0 #for calculating beta function constant 
+    g_prod = 1 #for calculating beta function constant
+    area = toMpMath('0.5') * mp.sqrt(mp.mpf('3')) / 2 #barycentric triangle area
+
+    for i in range(len(x)):
+        try:
+            prod *= (x[i]**(alpha[i][-1]))
+        except ZeroDivisionError:
+            prod = inf
+        a0 += alpha[i]
+        g_prod *= gm(alpha[i])
+    g0 = gm(a0)
+    beta_func = g0 / g_prod
+    dirpdf = prod * beta_func * (mp.mpf('0.5') / area)
+
+    return dirpdf
