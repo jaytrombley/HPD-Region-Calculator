@@ -24,7 +24,7 @@ mp.mp.dps = 35
 def main():
 
     #alpha params for dirichlet distribution here
-    alpha1 = 1
+    alpha1 = 2
     alpha2 = 2
     alpha3 = 3
     alphas = [toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3)]
@@ -34,7 +34,7 @@ def main():
 
     dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas)
     dirichlet_object.plotSimplex()
-    dirichlet_object.integrateWithGQ()
+    dirichlet_object.getThresholdDensity(0.95)
 
 
 #function for ensuring all floating point numbers are in mpmath precision
@@ -325,7 +325,6 @@ class Dirichlet_Distribution:
         p = toMpMath(p)
 
         #bisection parameters
-        t_star = 0
         M = 0
         R = 0
         L = 0
@@ -363,20 +362,20 @@ class Dirichlet_Distribution:
                 if(((1 / area_sub) * toMpMath(self.sub_info[l][0])) > M): #if subtriangle rep. density > M...
                     g += toMpMath(self.sub_info[l][0]) #...accumulate the probability mass of the subtriangle
 
-        #if the proportion of the probability mass g is greater than our target p, M too inclusive
-        #M needs to be larger, take the new lower bound L to be the current M
-        if(g > p):
-            L = toMpMath(M)
+            #if the proportion of the probability mass g is greater than our target p, M too inclusive
+            #M needs to be larger, take the new lower bound L to be the current M
+            if(g > p):
+                L = toMpMath(M)
 
-        #if the proportion g is less than p, then M is too exclusive
-        #M needs to be smaller, take new upper bound R to be the current M, bisect again
-        elif(g < p):
-            R = toMpMath(M)
+            #if the proportion g is less than p, then M is too exclusive
+            #M needs to be smaller, take new upper bound R to be the current M, bisect again
+            elif(g < p):
+                R = toMpMath(M)
 
-        if(j % 5 == 0):
-            print(f"{j}/{20} bisections performed")
+            if(j % 5 == 0):
+                print(f"{j}/{20} bisections performed")
 
-    return M
+        return M
             
 
 if __name__ == "__main__":
