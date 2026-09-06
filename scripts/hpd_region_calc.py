@@ -174,4 +174,7 @@ class Dirichlet_Distribution:
                 if((j+1) != (len(self.index_vert[i]) - 1)):
                     self.triangles.append([self.index_vert[i][j+1], self.index_vert[i+1][j], self.index_vert[i+1][j+1]])
 
-    
+    def getVertices(self):
+        print(f"vertices: {self.vertices}")
+        print(f"index of vertices: {self.index_vert}")
+        print(f"triangles: {self.triangles}")
