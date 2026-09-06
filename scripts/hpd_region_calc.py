@@ -29,11 +29,12 @@ def main():
     alpha3 = 3
     alphas = [toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3)]
 
-    resolution = 11
+    resolution = 5
     resolution_ts = mp.mpf('0.001')
 
     dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas)
-    dirichlet_object.plotSimplex()
+    #dirichlet_object.plotSimplex()
+    dirichlet_object.showNodes()
 
 
 #function for ensuring all floating point numbers are in mpmath precision
@@ -225,7 +226,7 @@ class Dirichlet_Distribution:
 
     #function for getting the local (within a subtriangle) barycentric coordinates given the parent BC triangle coords
     def localBCfromRefBC(self,subtriangle, bc):
-        lambdas = [toMpMath(bc[i]) for i in bc]
+        lambdas = [toMpMath(i) for i in bc]
 
         mu_0 = (lambdas[0] * self.vertices[subtriangle[0]][0]) + (lambdas[1] * self.vertices[subtriangle[1]][0])\
                 + (lambdas[2] * self.vertices[subtriangle[2]][0]) 
@@ -241,7 +242,7 @@ class Dirichlet_Distribution:
         subtriangle_nodes = []
 
         #the nodes will be permutations of [ralpha[i], rbeta[i], rgamma[i]] with respect to the S3 symmetry group
-        for i in range(3):
+        for i in range(4):
 
             #for i=0,1,2, get [ralpha[i],rbeta[i],rgamma[i]] and distinct permutations at each i
             w = [self.ralpha[i], self.rbeta[i], self.rgamma[i]]
@@ -255,8 +256,9 @@ class Dirichlet_Distribution:
                     subtriangle_nodes.append([self.localBCfromRefBC(subtriangle, w), self.weights[i]])
                     w = w[-1:] + w[:-1] #np.roll them without the `np`
 
+        #since the last col i=3 has six valid permutations, we need the final three nodes
+        w = [self.ralpha[3], self.rgamma[3], self.rbeta[3]]
         for i in range(3):
-            w = [self.ralpha[3], self.rgamma[3], self.rbeta[3]]
             subtriangle_nodes.append([self.localBCfromRefBC(subtriangle, w), self.weights[3]])
             w = w[-1:] + w[:-1]
         
