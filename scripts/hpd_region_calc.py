@@ -262,5 +262,14 @@ class Dirichlet_Distribution:
         
         return subtriangle_nodes
 
+    #function on experimental branch to test output of nodes
+    def showNodes(self):
+        self.plotSimplex()
+        node_list = self.gaussQuadNodes(self.triangles[0])
+        for i in range(len(node_list)):
+            x, y = bc2xy(node_list[i][0])
+            plt.plot(x, y, 'ro')
+        plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_test_function.png")
+
 if __name__ == "__main__":
     main()
