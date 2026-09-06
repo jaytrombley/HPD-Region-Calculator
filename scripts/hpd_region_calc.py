@@ -496,7 +496,7 @@ class Dirichlet_Distribution:
                 elif(((sum_term == inf) and (k > 0)) or (mp.isnan(sum_term) == True)): #if bound is nan or inf, back up one h, take it as true bound
                     bounds[i] -= self.res_ts
                     break
-                else: #if we can push bound further, do so by incrementing k
+                else: #if we can push bound further, do so by incrementing
                     if(i==1):
                         k -= 1
                     else:
@@ -504,7 +504,15 @@ class Dirichlet_Distribution:
         
         return [[-bounds[0], bounds[0]], [bounds[1], bounds[2]]]
 
+    #function for calculating subtriangle barycentric coordinates from U, V coordinates
+    #add orientation functionality
+    def localBCfromUV(self, subtriangle, u, v):
+        u = toMpMath(u)
+        v = toMpmath(v)
+        lambdas = uv2bc(u, v)
 
+        coords = self.localBCfromRefBC(subtriangle, lambdas)
+        return coords
 
 
 if __name__ == "__main__":
