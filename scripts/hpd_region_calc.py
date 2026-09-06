@@ -263,5 +263,25 @@ class Dirichlet_Distribution:
         
         return subtriangle_nodes
 
+    #calculating Dirichlet pdf and weight at each node in the subtriangle
+    #return subtriangle pdf mass via quadrature
+    def gaussQuadSub(self, subtriangle):
+        sub_nodes = self.gaussQuadNodes(subtriangle) 
+        sub_value = 0
+        cell_values = []
+
+        #for each of the 13 nodes, calculate PDF there, multiply by quadrature weight
+        for i in range(len(sub_nodes)):
+            f_dirichlet = toMpMath(dirichletpdf(sub_nodes[i][0], self.alphas))
+            value = f_dirichlet * toMpMath(sub_nodes[i][1])
+            cell_values.append(value)
+            sub_value += value
+        
+        #calculate PDF variance in cell for sorting
+        cell_variance = max(cell_vales) - min(cell_values)
+        self.subtriangle_variance.append([subtriangle, cell_variance])
+
+        return sub_value * self.getSubArea(subtriangle)
+
 if __name__ == "__main__":
     main()
