@@ -20,3 +20,21 @@ import matplotlib.tri as tri
 
 #set mpmath global precision for tanh-sinh quadrature
 mp.mp.dps = 35
+
+def main():
+
+    #alpha params for dirichlet distribution here
+    alpha1 = 1
+    alpha2 = 2
+    alpha3 = 3
+    alphas = []
+
+
+#function for ensuring all floating point numbers are in mpmath precision
+def toMpMath(x):
+    #if the arg is already a mpmath number, pass
+    if isinstance(x, mp.mpf):
+        return x
+    #else, return it as a mpmath float
+    else:
+        return mp.mpf(str(x))
