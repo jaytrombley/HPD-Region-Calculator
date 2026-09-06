@@ -143,3 +143,35 @@ class Dirichlet_Distribution:
 
     #iterator check: 0=first pass, 1=second pass, 2=3rd pass. This is for if we decide to do a subtriangle division after one 'pass', or pdf calculation across the domain.
     iterator = 0
+
+    #constructor
+    def __init__(self, a, h, params):
+
+        self.res = a
+        self.res_ts = h
+        self.alphas = [toMpMath(i) for i in params]
+
+        #segment sides of triangle for grid to perform numerical integration in barycentric coordinates
+        n = mp.linspace(0, 1, a)
+
+        grid = [n, n, n]
+
+        #construct list of vertices from L->R (0,0,1) -> (0,1,0) and y=0 to y=sqrt(3)/2
+        #construct list of vertex indices
+        for i in range(len(n)):
+            j = 0
+            rowindex = []
+            while((i+j) <= (a-1)):
+                rowindex.append(len(self.vertices))
+                self.vertices.append([n[i], n[j], n[a - i - j - 1]])
+                j += 1
+            self.index_vert.append(list(rowindex))
+
+        #construct list of subtriangles, each characterized by three vertex indices
+        for i in range(len(self.index_vert) - 1):
+            for j in range(len(self.index_vert[i]) - 1):
+                self.triangles.append(self.index_vert[i][j], self.index_vert[i][j+1], self.index_vert[i+1][j]])
+                if((j+1) != (len(self.index_vert[i]) - 1)):
+                    self.triangles.append([self.index_vert[i][j+1], self.index_vert[i+1][j], self.index_vert[i+1][j+1]])
+
+    
