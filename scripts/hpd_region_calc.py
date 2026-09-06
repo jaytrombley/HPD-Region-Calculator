@@ -146,6 +146,7 @@ class Dirichlet_Distribution:
     t_extrema = 2
     s_max = 3.64
     s_min = 2.4
+    ts_bounds = [t_extrema, s_min, s_max]
 
     #stores subtriangle and its variance in an array for determining which triangles to use tah-sinh on.
     subtriangle_variance = []
@@ -452,6 +453,56 @@ class Dirichlet_Distribution:
         print(f"*** for parameters {self.alphas}, HPD area is {areaHPD} with a probability mass of {massHPD}")
         print("*************************************************")
         return areaHPD
+
+    #function to calculate the u, v bounds on which tanh-sinh integration is to be performed
+    def getTanhSinhDomainBounds(self, subtriangle):
+        alt_ref = mp.mpf('0.9931285991850950') #constant; if integrating in u, constant v, and vice versa
+        alt_0 = toMpMath('0.5') * (alt_ref + 1) #shift from [-1, 1] to [0, 1]
+        b1 = 0
+        b2 = 0
+        b3 = 0
+        bounds = [b1, b2, b3] #bounds for the tanh-sinh domain
+
+        #basically calculates the whole tanh sinh function given a specific node in the subtriangle
+        def calcSumTerm(t, uv_var):
+            uv = mp.mpf('0.5') * mp.tanh((mp.pi / 2) * mp.sinh(t)) + mp.mpf('0.5') #tanh sinh function here
+
+            #if we are integrating in the u direction:
+            if(uv_var == 'u'):
+                f = toMpMath(dirichletpdf(self.localBCfromUV(subtriangle, uv, alt_0), self.alphas))
+                u_jacobian = uv #the jacobian (1-u) will change if v is constant
+            elif(uv_var == 'v'):
+                f = toMpMath(dirichletpdf(self.localBCfromUV(subtriangle, alt_0, uv), self.alphas))
+                u_jacobian = alt_0 #the jacobian 1-u is constant because u is constant
+            else:
+                print("variable not u or v")
+                quit()
+            w_k = (mp.pi / 4) * (mp.cosh(t) / ((mp.cosh((mp.pi/2) * mp.sinh(t)))**2)) #tanh-sinh weight, the deriv of the tanh sinh function
+            return f * w_k * self.res_ts**2 * (1 - u_jacobian) * 2 * self.getSubArea(subtriangle)
+
+        #for u->1, v->0, v->1
+        for i in range(len(self.ts_bounds)):
+            k = 0
+            if(i==0):
+                var = 'u'
+            else:
+                var = 'v'
+            while True:
+                bounds[i] = self.ts_bounds[i] + (k * self.res_ts) #increment by k*h
+                sum_term = calcSumTerm(bounds[i], var) #calculate TS function at the bound
+
+                if (sum_term < 1e-40) and (k > 0): #if bound within threshold, take it as the true bound
+                    break
+                elif(((sum_term == inf) and (k > 0)) or (mp.isnan(sum_term) == True)): #if bound is nan or inf, back up one h, take it as true bound
+                    bounds[i] -= self.res_ts
+                    break
+                else: #if we can push bound further, do so by incrementing k
+                    if(i==1):
+                        k -= 1
+                    else:
+                        k += 1
+        
+        return [[-bounds[0], bounds[0]], [bounds[1], bounds[2]]]
 
 
 
