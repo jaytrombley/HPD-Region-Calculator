@@ -36,6 +36,7 @@ def main():
     dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas, p)
     dirichlet_object.plotSimplex()
     dirichlet_object.calcHPDArea()
+    dirichlet_object.testTSBounds()
 
 
 #function for ensuring all floating point numbers are in mpmath precision
@@ -504,7 +505,9 @@ class Dirichlet_Distribution:
         
         return [[-bounds[0], bounds[0]], [bounds[1], bounds[2]]]
 
-
+    #experimental function to test ts bounds
+    def testTSBounds(self):
+        print(self.getTanhSinhDomainBounds(self.triangles[0]))
 
 
 if __name__ == "__main__":
