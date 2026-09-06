@@ -27,7 +27,13 @@ def main():
     alpha1 = 1
     alpha2 = 2
     alpha3 = 3
-    alphas = []
+    alphas = [toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3)]
+
+    resolution = 11
+    resolution_ts = mp.mpf('0.001')
+
+    dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas)
+    dirichlet_object.plotSimplex()
 
 
 #function for ensuring all floating point numbers are in mpmath precision
@@ -170,7 +176,7 @@ class Dirichlet_Distribution:
         #construct list of subtriangles, each characterized by three vertex indices
         for i in range(len(self.index_vert) - 1):
             for j in range(len(self.index_vert[i]) - 1):
-                self.triangles.append(self.index_vert[i][j], self.index_vert[i][j+1], self.index_vert[i+1][j]])
+                self.triangles.append([self.index_vert[i][j], self.index_vert[i][j+1], self.index_vert[i+1][j]])
                 if((j+1) != (len(self.index_vert[i]) - 1)):
                     self.triangles.append([self.index_vert[i][j+1], self.index_vert[i+1][j], self.index_vert[i+1][j+1]])
 
@@ -187,7 +193,7 @@ class Dirichlet_Distribution:
         triangle = mpatches.Polygon([[0,0], [1,0], [0.5, sqrt(3)/2]], closed=True, fill=False, edgecolor='black', linewidth=2)
         ax.add_patch(triangle)
 
-        plt.xlim(-0/1, 0.1)
+        plt.xlim(-0.1, 1.1)
         plt.ylim(-0.1, sqrt(3)/2 + 0.1)
         ax.set_aspect('equal', adjustable='box')
 
@@ -207,4 +213,15 @@ class Dirichlet_Distribution:
         o = f"Resolution: n={self.res}"
         plt.figtext(0.375, 0.075, o)
 
-        plt.savefig("~/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
+        plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
+
+    #function for obtaining subtriangle area; used in the event AMR is employed and subtriangles are not uniform area
+    def getSubArea(self, subtriangle):
+        x_1, y_1 = bc2xy(self.vertices[subtriangle[1]])
+        x_0, y_0 = bc2xy(self.vertices[subtriangle[0]])
+
+        sidelength = mp.sqrt((x_1 - x_0)**2 + (y_1-y_0)**2)
+        return self.area * sidelength**2
+
+if __name__ == "__main__":
+    main()
