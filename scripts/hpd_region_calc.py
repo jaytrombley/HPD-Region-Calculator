@@ -44,3 +44,16 @@ def bc2xy(xyz):
     x = (xyz[0] * mp.mpf('0.5')) + (xyz[1] * 0) + (xyz[2] * 1)
     y = (xyz[0] * (mp.sqrt(mp.mpf('3')) / 2)) + (xyz[1] * 0) + (xyz[2] * 0)
     return [x,y]
+
+#function to convert unit square [0,1]x[0,1] to barycentric coordinates via Duffy transform
+def uv2bc(u, v):
+    u = toMpMath(u)
+    v = toMpMath(v)
+
+    #Duffy transform implemented below; defining a set of BC coordinates (A, B, C) from a point in the unit square (u, v)
+    #The singular side occurs at u=1
+    A = u
+    B = v * (1-u)
+    C = (1 - u) * (1 - v)
+    return [A, B, C]
+
