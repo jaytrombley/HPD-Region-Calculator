@@ -178,3 +178,33 @@ class Dirichlet_Distribution:
         print(f"vertices: {self.vertices}")
         print(f"index of vertices: {self.index_vert}")
         print(f"triangles: {self.triangles}")
+
+    def plotSimplex(self):
+        plt.figure(1, figsize=(8,8))
+        ax = plt.gca()
+
+        #plot simplex/BC triangle
+        triangle = mpatches.Polygon([[0,0], [1,0], [0.5, sqrt(3)/2]], closed=True, fill=False, edgecolor='black', linewidth=2)
+        ax.add_patch(triangle)
+
+        plt.xlim(-0/1, 0.1)
+        plt.ylim(-0.1, sqrt(3)/2 + 0.1)
+        ax.set_aspect('equal', adjustable='box')
+
+        #plot the vertices of each subtriangle
+        for i in range(len(self.vertices)):
+            x, y = bc2xy(self.vertices[i])
+            plt.plot(x, y, 'k.')
+
+        #for reference, plot the three vertices of the parent triangle and label them
+        a, b = bc2xy([0, 0, 1])
+        plt.plot(a, b, 'co', label='(0, 0, 1)')
+        a, b = bc2xy([1, 0, 0])
+        plt.plot(a, b, 'mo', label='(1, 0, 0)')
+        a, b = bc2xy([0, 1, 0])
+        plt.plot(a, b, 'go', label='(0, 1, 0)')
+        plt.legend()
+        o = f"Resolution: n={self.res}"
+        plt.figtext(0.375, 0.075, o)
+
+        plt.savefig("~/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
