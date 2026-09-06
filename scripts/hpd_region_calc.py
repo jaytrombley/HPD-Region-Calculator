@@ -350,10 +350,14 @@ class Dirichlet_Distribution:
             if ((1 / area_sub) * toMpMath(self.sub_info[i][0])) > R:
                 R = toMpMath((1 / area_sub) * toMpMath(self.sub_info[i][0]))
 
+        '''
         #iterate 20 times and perform bisection each time on the list of subtriangle densities
         for j in range(0, 20):
+        '''
+        #iterate until threshold density gives probability mass within tolerance of desired p
+        g = 0
+        while (abs(g - p) < 1e-5):
             M = toMpMath((L + R) / 2)
-            g = 0
 
             #use midpoint M and calculate proportion of probability mass with subtriangles with densities above M
             for l in range(len(self.sub_info)):
@@ -374,7 +378,7 @@ class Dirichlet_Distribution:
             R = toMpMath(M)
 
         if(j % 5 == 0):
-            print(f"{j}/{20} bisections performed")
+            print(f"{j} bisections performed: g={g} and g-p={abs(g-p)}")
 
     return M
             
