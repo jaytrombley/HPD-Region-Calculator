@@ -33,8 +33,7 @@ def main():
     resolution_ts = mp.mpf('0.001')
 
     dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas)
-    #dirichlet_object.plotSimplex()
-    dirichlet_object.showNodes()
+    dirichlet_object.plotSimplex()
 
 
 #function for ensuring all floating point numbers are in mpmath precision
@@ -263,15 +262,6 @@ class Dirichlet_Distribution:
             w = w[-1:] + w[:-1]
         
         return subtriangle_nodes
-
-    #function on experimental branch to test output of nodes
-    def showNodes(self):
-        self.plotSimplex()
-        node_list = self.gaussQuadNodes(self.triangles[0])
-        for i in range(len(node_list)):
-            x, y = bc2xy(node_list[i][0])
-            plt.plot(x, y, 'ro')
-        plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_test_function.png")
 
 if __name__ == "__main__":
     main()
