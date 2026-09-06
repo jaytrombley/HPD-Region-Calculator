@@ -34,6 +34,7 @@ def main():
 
     dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas)
     dirichlet_object.plotSimplex()
+    dirichlet_object.integrateWithGQ()
 
 
 #function for ensuring all floating point numbers are in mpmath precision
@@ -87,7 +88,7 @@ def dirichletpdf(x, alpha):
 
     for i in range(len(x)):
         try:
-            prod *= (x[i]**(alpha[i][-1]))
+            prod *= (x[i]**(alpha[i]-1))
         except ZeroDivisionError:
             prod = inf
         a0 += alpha[i]
@@ -278,10 +279,47 @@ class Dirichlet_Distribution:
             sub_value += value
         
         #calculate PDF variance in cell for sorting
-        cell_variance = max(cell_vales) - min(cell_values)
+        cell_variance = max(cell_values) - min(cell_values)
         self.subtriangle_variance.append([subtriangle, cell_variance])
 
         return sub_value * self.getSubArea(subtriangle)
+
+    #function to integrate PDF across the Dirichlet distribution domain
+    def integrateWithGQ(self):
+        integral_list = []
+        total_mass = 0 #should equal 1 at the end
+
+        #check if this is the first time integrating the domain
+        if self.iterator > 0:
+            self.subtriangle_variance = []
+
+        print("\ncalculating probability masses...\n")
+
+        #for each subtriangle in the domain, calculate the probability mass it contains
+        for i in range(len(self.triangles)):
+            sub_mass = toMpMath(self.gaussQuadSub(self.triangles[i]))
+
+            #if this is NOT the first pass, check for any divided subtriangles from AMR
+            if(self.iterator == 1):
+                if(self.sub_info[i][3] == True):
+                    self.sub_info[i] = [0, self.triangles[i], 0, True]
+                    continue
+                else:
+                    self.sub_info[i] = [sub_mass, self.triangles[i], 0, False]
+
+            #if this is the first pass, fill out sub_info
+            elif(self.iterator == 0):
+                self.sub_info.append([sub_mass, self.triangles[i], 0, False])
+
+            #accumulate the probability mass now
+            total_mass += sub_mass
+            if i % 5000 == 0:
+                print(f"{i}/{len(self.triangles)} subtriangle masses computed")
+
+        ### Uncomment to verify total domain mass ###
+        #print(f"total domain mass is {total_mass}")
+
+            
 
 if __name__ == "__main__":
     main()
