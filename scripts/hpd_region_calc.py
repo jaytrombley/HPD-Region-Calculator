@@ -24,17 +24,18 @@ mp.mp.dps = 35
 def main():
 
     #alpha params for dirichlet distribution here
-    alpha1 = 2
-    alpha2 = 2
-    alpha3 = 3
+    alpha1 = 7
+    alpha2 = 7
+    alpha3 = 7
     alphas = [toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3)]
 
-    resolution = 5
+    resolution = 51
     resolution_ts = mp.mpf('0.001')
+    p = mp.mpf('0.95')
 
-    dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas)
+    dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas, p)
     dirichlet_object.plotSimplex()
-    dirichlet_object.getThresholdDensity(0.95)
+    dirichlet_object.calcHPDArea()
 
 
 #function for ensuring all floating point numbers are in mpmath precision
@@ -404,13 +405,53 @@ class Dirichlet_Distribution:
             #####
             sub_nodes = self.gaussQuadNodes(self.sub_info[i][1]) #get Gaussian nodes for subtriangle
             for j in range(len(sub_nodes)): #for each node in the subtriangle...
-                f_dirichlet = toMpMath(dirichletpdf(sub_nodes[j][0], alpha)) #calculate Dirichlet pdf at subtriangle node
+                f_dirichlet = toMpMath(dirichletpdf(sub_nodes[j][0], self.alphas)) #calculate Dirichlet pdf at subtriangle node
                 if f_dirichlet > t: #if the Dirichlet pdf at the node > t, count it
                     node_threshold_count += 1
             self.sub_info[i][2] = node_threshold_count #denote number of nodes in subtriangle with PDF values above t
             if(i % 5000 == 0):
                 print(f"{i}/{len(self.sub_info)} subtriangles classified")
 
+    #function to calculate the area of the HPD region
+    def calcHPDArea(self):
+
+        ###### FRACTIONAL SUBTRIANGLES - SUM NORMALIZED WEIGHTS OF NODES ABOVE THRESHOLD INSTEAD OF i/13 ######
+
+        areaHPD = 0
+        massHPD = 0
+
+        #update sub_info
+        self.classifyBoundary()
+        print("calculating HPD area...")
+
+        for i in range(len(self.sub_info)):
+            if(self.sub_info[i][3] == True): #if it is a subdivided subtriangle from AMR, skip
+                continue
+            elif(self.sub_info[i][2] == -1): # if the subtriangle is a tanh-sinh subtriangle within the HPD region
+                areaHPD += self.getSubArea(self.sub_info[i][1])
+                massHPD += toMpMath(self.sub_info[i][0])
+            elif(self.sub_info[i][2] < 0) and (self.sub_info[i][2] != -1): #if the subtriangle is a boundary tanh-sinh...
+                print("semi-tanh-sinh detected")
+                #will return to work on this
+                continue
+            elif(self.sub_info[i][2] == 13): #if the subtriangle is a GQ subtriangle with all nodes inside HPD region
+                areaHPD += self.getSubArea(self.sub_info[i][1])
+                massHPD += toMpMath(self.sub_info[i][0])
+            #update this calculation with the method suggested at the top of this function
+            elif((self.sub_info[i][2] < 13) and (self.sub_info[i][2] > 0)): #if the subtriangle is GQ with partial nodes in HPD region
+                areaHPD += toMpMath(self.sub_info[i][2] / 13) * self.getSubArea(self.sub_info[i][1])
+                massHPD += toMpMath(self.sub_info[i][2] / 13) * toMpMath(self.sub_info[i][0])
+            elif(self.sub_info[i][2] == 0): #if the subtriangle is excluded from the HPD region, skip
+                continue
+            
+            #length of sub info may not be a good indicator if AMR is to be implemented extensively,
+            if(i%5000 == 0):
+                print(f"{i}/{len(self.sub_info)} of the simplex area calculated")
+
+        print("\n***********************************************")
+        print(f"*** for parameters {self.alphas}, HPD area is {areaHPD} with a probability mass of {massHPD}")
+        print("*************************************************")
+        return areaHPD
 
 
 
