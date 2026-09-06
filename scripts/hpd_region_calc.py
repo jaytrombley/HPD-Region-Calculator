@@ -38,3 +38,9 @@ def toMpMath(x):
     #else, return it as a mpmath float
     else:
         return mp.mpf(str(x))
+
+#function for converting barycentric to cartesian coordinates
+def bc2xy(xyz):
+    x = (xyz[0] * mp.mpf('0.5')) + (xyz[1] * 0) + (xyz[2] * 1)
+    y = (xyz[0] * (mp.sqrt(mp.mpf('3')) / 2)) + (xyz[1] * 0) + (xyz[2] * 0)
+    return [x,y]
