@@ -369,18 +369,18 @@ class Dirichlet_Distribution:
 
         #if the proportion of the probability mass g is greater than our target p, M too inclusive
         #M needs to be larger, take the new lower bound L to be the current M
-        if(g > p):
-            L = toMpMath(M)
+            if(g > p):
+                L = toMpMath(M)
 
         #if the proportion g is less than p, then M is too exclusive
         #M needs to be smaller, take new upper bound R to be the current M, bisect again
-        elif(g < p):
-            R = toMpMath(M)
+            elif(g < p):
+                R = toMpMath(M)
 
-        if(j % 5 == 0):
-            print(f"{j} bisections performed: g={g} and g-p={abs(g-p)}")
+            if(j % 5 == 0):
+                print(f"{j} bisections performed: g={g} and g-p={abs(g-p)}")
 
-    return M
+        return M
             
 
 if __name__ == "__main__":
