@@ -117,6 +117,7 @@ class Dirichlet_Distribution:
     #resolution of mesh, tanh-sinh step, domain area
     res = 0
     res_ts = 0
+    p = 0
     area = mp.mpf('0.5') * (mp.sqrt(mp.mpf('3'))/2)
 
     '''
@@ -152,10 +153,11 @@ class Dirichlet_Distribution:
     iterator = 0
 
     #constructor
-    def __init__(self, a, h, params):
+    def __init__(self, a, h, params, p):
 
         self.res = a
-        self.res_ts = h
+        self.res_ts = toMpMath(h)
+        self.p = toMpMath(p)
         self.alphas = [toMpMath(i) for i in params]
 
         #segment sides of triangle for grid to perform numerical integration in barycentric coordinates
@@ -321,8 +323,7 @@ class Dirichlet_Distribution:
 
 
     #function to get threshold density t, determines subtriangles in or out of HPD region
-    def getThresholdDensity(self, p):
-        p = toMpMath(p)
+    def getThresholdDensity(self):
 
         #bisection parameters
         M = 0
@@ -364,12 +365,12 @@ class Dirichlet_Distribution:
 
             #if the proportion of the probability mass g is greater than our target p, M too inclusive
             #M needs to be larger, take the new lower bound L to be the current M
-            if(g > p):
+            if(g > self.p):
                 L = toMpMath(M)
 
             #if the proportion g is less than p, then M is too exclusive
             #M needs to be smaller, take new upper bound R to be the current M, bisect again
-            elif(g < p):
+            elif(g < self.p):
                 R = toMpMath(M)
 
             if(j % 5 == 0):
@@ -377,6 +378,42 @@ class Dirichlet_Distribution:
 
         return M
             
+    #function to classify boundary of HPD region
+    def classifyBoundary(self):
+        t = toMpMath(self.getThresholdDensity())
+        print(f"\nboundary threshold density = {t}")
+        print(f"classifying boundary...")
+
+        #iterate through sub info list
+        for i in range(len(self.sub_info)):
+            node_threshold_count = 0
+            if(self.sub_info[i][3] == True): #if the subtriangle is marked as divided via AMR
+                continue
+
+            ###### THE CODE HERE IS FOR WHAT TO DO IF WE ENCOUNTER A TANH-SINH TRIANGLE ######
+            #####  
+            elif(self.sub_info[i][2] == -1): #if the subtriangle mass was calculated with tanh-sinh...
+                if((1/self.getSubArea(self.sub_info[i][1]) * self.sub_info[i][0]) > t): #pass if mass above t
+                    continue
+                elif((1/self.getSubArea(self.sub_info[i][1]) * self.sub_info[i][0]) < t): #treat as outside HPD otherwise
+                    self.sub_info[i][2] = 0
+                    continue
+            #####
+
+            ###### HERE WE CONSIDER ONLY GAUSSIAN SUBTRIANGLES #####
+            #####
+            sub_nodes = self.gaussQuadNodes(self.sub_info[i][1]) #get Gaussian nodes for subtriangle
+            for j in range(len(sub_nodes)): #for each node in the subtriangle...
+                f_dirichlet = toMpMath(dirichletpdf(sub_nodes[j][0], alpha)) #calculate Dirichlet pdf at subtriangle node
+                if f_dirichlet > t: #if the Dirichlet pdf at the node > t, count it
+                    node_threshold_count += 1
+            self.sub_info[i][2] = node_threshold_count #denote number of nodes in subtriangle with PDF values above t
+            if(i % 5000 == 0):
+                print(f"{i}/{len(self.sub_info)} subtriangles classified")
+
+
+
+
 
 if __name__ == "__main__":
     main()
