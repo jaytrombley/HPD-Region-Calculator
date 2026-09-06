@@ -57,3 +57,15 @@ def uv2bc(u, v):
     C = (1 - u) * (1 - v)
     return [A, B, C]
 
+#function to convert barycentric coordinates to unit square coordinates (u, v) via Duffy transform
+def bc2uv(x):
+    x = [toMpmath(i) for i in x]
+    u = x[0]
+
+    if (u == 1):
+        v = 0
+        return [u, v]
+    else:
+        v = (x[1] / (1 - x[0]))
+        return [u, v]
+
