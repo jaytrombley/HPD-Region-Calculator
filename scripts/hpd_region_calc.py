@@ -236,5 +236,31 @@ class Dirichlet_Distribution:
 
         return [mu_0, mu_1, mu_2]
 
+    #for a given subtriangle, return list of node locations in reference barycentric coordinates, and weights at the nodes
+    def gaussQuadNodes(self, subtriangle):
+        subtriangle_nodes = []
+
+        #the nodes will be permutations of [ralpha[i], rbeta[i], rgamma[i]] with respect to the S3 symmetry group
+        for i in range(3):
+
+            #for i=0,1,2, get [ralpha[i],rbeta[i],rgamma[i]] and distinct permutations at each i
+            w = [self.ralpha[i], self.rbeta[i], self.rgamma[i]]
+
+            #if i=0, note there is only one distinct permutation of (1/3,1/3,1/3)
+            if(i==0):
+                subtriangle_nodes.append([self.localBCfromRefBC(subtriangle, w), self.weights[i]])
+                continue
+            else: #since there are three distinct permutations for each i=1,2
+                for j in range(len(w)):
+                    subtriangle_nodes.append([self.localBCfromRefBC(subtriangle, w), self.weights[i]])
+                    w = w[-1:] + w[:-1] #np.roll them without the `np`
+
+        for i in range(3):
+            w = [self.ralpha[3], self.rgamma[3], self.rbeta[3]]
+            subtriangle_nodes.append([self.localBCfromRefBC(subtriangle, w), self.weights[3]])
+            w = w[-1:] + w[:-1]
+        
+        return subtriangle_nodes
+
 if __name__ == "__main__":
     main()
