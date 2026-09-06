@@ -29,7 +29,7 @@ def main():
     alpha3 = 7
     alphas = [toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3)]
 
-    resolution = 51
+    resolution = 11
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
@@ -502,18 +502,27 @@ class Dirichlet_Distribution:
                         k -= 1
                     else:
                         k += 1
+                
         
         return [[-bounds[0], bounds[0]], [bounds[1], bounds[2]]]
 
     #function for calculating subtriangle barycentric coordinates from U, V coordinates
     #add orientation functionality
-    def localBCfromUV(self, subtriangle, u, v):
+    def localBCfromUV(self, subtriangle, u, v, orientation=None):
         u = toMpMath(u)
-        v = toMpmath(v)
+        v = toMpMath(v)
         lambdas = uv2bc(u, v)
+
+        if(orientation == 1): #singularity at (0,1,0)/cartesian (0,0)
+            lambdas = lambdas[-1:] + lambdas[:-1]
+        elif(orientation == 2): #singularity at (0,0,1)/cartesian (0,1)
+            lambdas = lambdas[-2:] + lambdas[:-2]
 
         coords = self.localBCfromRefBC(subtriangle, lambdas)
         return coords
+
+    def testTSBounds(self):
+        print(self.getTanhSinhDomainBounds(self.triangles[0]))
 
 
 if __name__ == "__main__":
