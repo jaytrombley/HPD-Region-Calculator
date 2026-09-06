@@ -319,6 +319,64 @@ class Dirichlet_Distribution:
         ### Uncomment to verify total domain mass ###
         #print(f"total domain mass is {total_mass}")
 
+
+    #function to get threshold density t, determines subtriangles in or out of HPD region
+    def getThresholdDensity(self, p):
+        p = toMpMath(p)
+
+        #bisection parameters
+        t_star = 0
+        M = 0
+        R = 0
+        L = 0
+
+        #first, make sure subtriangle list is filled out
+        self.integrateWithGQ()
+
+        #if there exist parameters less than 1, we will need tanh-sinh integration
+        if((self.alphas[0] < 1) or (self.alphas[1] < 1) or (self.alphas[2] < 1)):
+            self.callTanhSinh()
+
+        #find subtriangle with largest representative density and take this density as the upper bound R
+        for i in range(len(self.sub_info)):
+
+            #if subtriangle is divided from AMR, skip:
+            if self.sub_info[i][3] == True:
+                continue
+
+            area_sub = self.getSubArea(self.sub_info[i][1])
+
+            #if the iterated subtriangle has a density greater than the current R, make it the new R
+            if ((1 / area_sub) * toMpMath(self.sub_info[i][0])) > R:
+                R = toMpMath((1 / area_sub) * toMpMath(self.sub_info[i][0]))
+
+        #iterate 20 times and perform bisection each time on the list of subtriangle densities
+        for j in range(0, 20):
+            M = toMpMath((L + R) / 2)
+            g = 0
+
+            #use midpoint M and calculate proportion of probability mass with subtriangles with densities above M
+            for l in range(len(self.sub_info)):
+                if(self.sub_info[i][3] == True):
+                    continue
+                area_sub = self.getSubArea(self.sub_info[i][1])
+                if(((1 / area_sub) * toMpMath(self.sub_info[l][0])) > M): #if subtriangle rep. density > M...
+                    g += toMpMath(self.sub_info[l][0]) #...accumulate the probability mass of the subtriangle
+
+        #if the proportion of the probability mass g is greater than our target p, M too inclusive
+        #M needs to be larger, take the new lower bound L to be the current M
+        if(g > p):
+            L = toMpMath(M)
+
+        #if the proportion g is less than p, then M is too exclusive
+        #M needs to be smaller, take new upper bound R to be the current M, bisect again
+        elif(g < p):
+            R = toMpMath(M)
+
+        if(j % 5 == 0):
+            print(f"{j}/{20} bisections performed")
+
+    return M
             
 
 if __name__ == "__main__":
