@@ -505,7 +505,7 @@ class Dirichlet_Distribution:
         return [[-bounds[0], bounds[0]], [bounds[1], bounds[2]]]
 
     #function for calculating subtriangle barycentric coordinates from U, V coordinates
-    #add orientation functionality
+    #add orientation functionality, which exists in experiment branch
     def localBCfromUV(self, subtriangle, u, v):
         u = toMpMath(u)
         v = toMpmath(v)
@@ -513,6 +513,99 @@ class Dirichlet_Distribution:
 
         coords = self.localBCfromRefBC(subtriangle, lambdas)
         return coords
+
+    #function to integrate a subtriangle with tanh-sinh quadrature
+    def tanhSinhSub(self, subtriangle, orientation=None):
+        bds = getTanhSinhDomainBounds(subtriangle)
+
+        #define refined lower bound for the u=g(t) interval (g(t_refined), bds[0][1])
+        gt_refined = toMpMath(bds[0][1] - mp.mpf('0.1'))
+
+        #define refined bounds for the interval v=g(s), (bds[1][0], g(s_refined_lower)) and (g(s_refined_upper), bds[1][1])
+        gs_refined_lower = toMpMath(bds[1][0] + mp.mpf('0.1'))
+        gs_refined_upper = toMpMath(bds[1][1] - mp.mpf('0.1'))
+
+        #constant to equal the spacing for the non-refined intervals given by [bds[0][0], g(t_refined)] subset of [bds[0][0], bds[0][1]] for u
+            #and the interval [g(s_refined_lower), g(s_refined_upper)] subset of [bds[1][0], bds[1][1]] for v
+        h_1 = mp.mpf('0.1')
+
+        #define refined interval step sizes
+        t_refined_step = int((bds[0][1] - gt_refined)/self.res_ts)
+        s_refined_step = int((bds[1][1] - gs_refined_upper)/self.res_ts)
+
+        #define coarse intervals step sizes
+        t_coarse_step = int((gt_refined - bds[0][0])/h_1)
+        s_coarse_step = int((gs_refined_upper - gs_refined_lower)/h_1)
+
+        #define interval of coarse integration using step size h_1; k is for u, l is for v
+        k_coarse = mp.linspace(mp.mpf(bds[0][0]), gt_refined, t_coarse_step, endpoint=False)
+        l_coarse = mp.linspace(gs_refined_lower, gs_refined_upper, s_coarse_step, endpoint=False)
+
+        #define interval of fine integration with the step size passed in as ts resolution argument
+        k_refined = mp.arange(gt_refined, bds[0][1], self.res_ts)
+        k_refined.append(mp.mpf(bds[0][1]))
+
+        l_refined_lower = mp.arange(mp.mpf(bds[1][0]), gs_refined_lower, self.res_ts)
+        l_refined_upper = mp.arange(gs_refined_upper, bds[1][1], self.res_ts)
+        l_refined_upper.append(mp.mpf(bds[1][1]))
+
+        #concatenate the intervals to get the integration domain of the tanh-sinh function
+        k = k_coarse + k_refined
+        l = l_refined_lower + l_coarse + l_refined_upper
+
+        #from the domain kxl, get the image of the tanh-sinh function in u, v terms
+        u_k = [mp.mpf('0.5') * mp.tanh((mp.pi/2) * mp.sinh(t)) for t in k]
+        v_l = [mp.mpf('0.5') * mp.tanh((mp.pi/2) * mp.sinh(s)) for s in l]
+
+        summation = 0
+
+        #for every point (u_i, v_j) in the unit square, calculate PDF, weight, jacobian, area by tanh-sinh function
+        for i in range(len(v_l)):
+            for j in range(len(u_k)):
+                g_t = (mp.pi/4) * (mp.cosh(k[j]) / ((mp.cosh((mp.pi/2) * mp.sinh(k[j])))**2))
+                g_s = (mp.pi/4) * (mp.cosh(l[i]) / ((mp.cosh((mp.pi/2) * mp.sinh(l[i])))**2))
+                weights = g_t * g_s
+                jacobian = toMpMath(1 - u_k[j])
+
+                #now need to calculate interval length of integration in v
+                if((i==0) or (i==(len(v_l)-1))):
+                    h_v = self.res_ts
+                else:
+                    h_v = (l[i+1] - l[i-1])/2
+
+                #now calculate interval length of integration in u
+                if(j==0):
+                    h_u = h_1
+                elif(j==(len(u_k)-1)):
+                    h_u = self.res_ts
+                else:
+                    h_u = (k[j+1] - k[j-1])/2
+
+                #now calculate value of tanh-sinh integral at the u_i, v_j
+                value = dirichletpdf(self.localBCfromUV(subtriangle, u_k[j], v_l[i]), alpha) * weights * jacobian * h_u * h_v
+                summation += value
+
+            if(i%100==0):
+                print(f"{i}/{len(v_l)-1} points in u=[0,1] computed")
+
+            #calculate the probability mass of the subtriangle by multiplying it by triangular jacobian transform
+            pdf_integral = summation * 2 * self.getSubArea(subtriangle)
+
+            return pdf_integral
+        
+
+    #function to call tanh-sinh quadrature in the event a parameter <1
+    def callTanhSinh(self):
+        sv = np.array(self.subtriangle_variance, dtype = object) #subtriangle variances
+
+        #if this is the first integration of the domain
+        if self.iterator == 0:
+            k = int(self.res**(1/3)) #number of triangles to perform tanh-sinh on as a function of resolution
+            mass_order = np.argsort(sv.T[1])[-k:][::-1] #sort by subtriangle PDF variance, take the k highest
+        #elif self.iterator == 1:...
+
+
+
 
 
 if __name__ == "__main__":
