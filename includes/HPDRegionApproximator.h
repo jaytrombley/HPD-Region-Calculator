@@ -72,6 +72,21 @@ class Dirichlet3D
 
             return cov;
         }
+
+        double lineX1Cart (double x)
+        {
+            return mx_1 * x + b_1;
+        }
+
+        double lineX2Cart (double x)
+        {
+            return mx_2 * x + b_2;
+        }
+
+        double lineX3Cart (double x)
+        {
+            return mx_3 * x + b_3;
+        }
 };
 
 #endif
