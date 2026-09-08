@@ -34,10 +34,22 @@ class Dirichlet3D
             double a0{a1 + a2 + a3};
             std::vector<double> mean{a1, a2, a3};
 
-            for (std::size_t ind{0}; ind < mean.size();  ind++)
+            for (std::size_t ind{0}; ind < mean.size();  ++ind)
                 mean[ind] /= a0;
 
             return mean;
+        }
+
+        std::vector<double> calcDirichlet3dVar (double a1, double a2, double a3)
+        {
+            double a0{a1 + a2 + a3};
+            double denom{a0 * a0 * (a0 + 1)};
+            std::vector<double> var{a1, a2, a3};
+
+            for (std::size_t ind{0}; ind < var.size(); ++ind)
+                var[ind] = (var[ind] * (a0 - var[ind])) / denom;
+
+            return var;
         }
 };
 
