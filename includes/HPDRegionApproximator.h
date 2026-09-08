@@ -137,6 +137,8 @@ class Dirichlet3D
 
             return baryPair;
         }
+
+        virtual ~Dirichlet3D() = default;
 };
 
 #endif
