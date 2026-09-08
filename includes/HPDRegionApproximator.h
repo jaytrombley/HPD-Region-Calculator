@@ -102,7 +102,41 @@ class Dirichlet3D
         {
             return (y - b_3) / mx_3;
         }
-        
+
+        std::vector<double> lineX1X1 (double x_1)
+        {
+            double x = v1[0] - x_1 * 0.5;
+            double y = v1[1] + x_1 * (sqrt(3) / 2);
+            std::vector<double> r{x, y};
+            return r;
+        }
+
+        std::vector<double> lineX2X2 (double x_2)
+        {
+            double x = v2[0] - x_2 * 0.5;
+            double y = v2[1] - x_2 * (sqrt(3) / 2);
+            std::vector<double> r{x, y};
+            return r;
+        }
+
+        std::vector<double> lineX3X3 (double x_3)
+        {
+            double x = v3[0] + x_3;
+            double y = v3[1];
+            std::vector<double> r{x, y};
+            return r;
+        }
+
+        std::vector<double> calcMeanBaryCoords (double a1, double a2, double a3)
+        {
+            double a0{a1 + a2 + a3};
+            std::vector<double> baryPair(2);
+
+            baryPair[0] = (a1 + 2 * a3) / (2 * a0);
+            baryPair[1] = (sqrt(3) / 2) * a1 / a0;
+
+            return baryPair;
+        }
 };
 
 #endif
