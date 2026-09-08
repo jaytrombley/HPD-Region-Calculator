@@ -138,6 +138,8 @@ class Dirichlet3D
             return baryPair;
         }
 
+        virtual std::vector<std::vector<double>> calcDirichlet3dHPD(double a1, double a2, double a3, double p) = 0;
+
         virtual ~Dirichlet3D() = default;
 };
 
