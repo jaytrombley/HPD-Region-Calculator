@@ -87,6 +87,22 @@ class Dirichlet3D
         {
             return mx_3 * x + b_3;
         }
+
+        double lineX1CartInv (double y)
+        {
+            return (y - b_1) / mx_1;
+        }
+
+        double lineX2CartInv (double y)
+        {
+            return (y - b_2) / mx_2;
+        }
+
+        double lineX3CartInv (double y)
+        {
+            return (y - b_3) / mx_3;
+        }
+        
 };
 
 #endif
