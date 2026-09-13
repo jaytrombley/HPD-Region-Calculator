@@ -29,12 +29,12 @@ def main():
     alpha3 = 5
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 35
+    resolution = 70
     resolution_ts = mp.mpf('0.001')
 
     dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas)
     dirichlet_object.plotSimplex()
-    dirichlet_object.integrateWithGQ()
+    dirichlet_object.calcHPDArea()
 
 
 #function for ensuring all floating point numbers are in mpmath precision
@@ -326,6 +326,30 @@ class Dirichlet_Distribution:
 
         ### Uncomment to verify total domain mass ###
         print(f"total domain mass is {total_mass}")
+
+    def calcHPDArea(self):
+        self.integrateWithGQ() #calculate Gaussian mass in each subtriangle
+        self.getThresholdDensity(0.95)
+
+    def getThresholdDensity(self, p):
+
+        #sort subtriangles by density; not mass, because subtriangle area may vary
+        tmp_density_array = []
+        for i in range(len(self.p_mass)):
+            tmp_density_array.append(self.p_mass[i] / self.getSubArea(self.triangles[i]))
+        tmp_density_array = np.array([float(x) for x in tmp_density_array])
+        p_mass_indices = np.argsort(tmp_density_array)[::-1] #get indices for largest -> smallest mass triangles
+        del tmp_density_array
+
+        #get initial estimation for threshold density from a descending sort of density
+        threshold_init = 0
+        for i in range(len(self.p_mass)):
+            if(threshold_init < p):
+                threshold_init += self.p_mass[p_mass_indices[i]] #accumulate probability mass from largest to smallest
+            else:
+                break
+        print(f"Threshold init is {threshold_init}")
+        
 
 
     '''
