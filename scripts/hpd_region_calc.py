@@ -29,7 +29,7 @@ def main():
     alpha3 = 3
     alphas = [toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3)]
 
-    resolution = 5
+    resolution = 35
     resolution_ts = mp.mpf('0.001')
 
     dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas)
@@ -106,10 +106,10 @@ class Dirichlet_Distribution:
     triangles = [] #store subtriangles by their vertex indices
     index_vert = [] #index for keeping track of vertices; index(0,0,1) = 0
 
-    #this array stores relevant information about the mesh and distribution
-    #the i-th entry will be [prob mass of subtriangle i, vertex indices of subtriangle, ...
-        # ..., number of nodes (out of 13) in the HPD region, T/F on whether the subtriangle is split]
-    sub_info = []
+    #these arrays store relevant information about the mesh and distribution
+    p_mass = [] #store probability mass by index of each subtriangle
+    hpd_nodes = [] #store number of nodes contained within the HPD region
+    subdivided = [] #store T/F on whether the subtriangle is divided via AMR
 
     #distribution parameters
     alphas = [0, 0, 0]
@@ -214,7 +214,8 @@ class Dirichlet_Distribution:
         o = f"Resolution: n={self.res}"
         plt.figtext(0.375, 0.075, o)
 
-        plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
+        plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
+        #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
 
     #function for obtaining subtriangle area; used in the event AMR is employed and subtriangles are not uniform area
     def getSubArea(self, subtriangle):
@@ -301,15 +302,19 @@ class Dirichlet_Distribution:
 
             #if this is NOT the first pass, check for any divided subtriangles from AMR
             if(self.iterator == 1):
-                if(self.sub_info[i][3] == True):
-                    self.sub_info[i] = [0, self.triangles[i], 0, True]
+                if(self.subdivided[i] == True): #set parent subtriangle properties to zero
+                    self.p_mass[i] = 0 
+                    self.hpd_nodes[i] = 0
                     continue
                 else:
-                    self.sub_info[i] = [sub_mass, self.triangles[i], 0, False]
+                    self.p_mass[i] = sub_mass
+                    self.hpd_nodes[i] = 0 #nodes in HPD will come later
 
-            #if this is the first pass, fill out sub_info
+            #if this is the first pass, fill out p_mass, hpd_nodes, subdivided
             elif(self.iterator == 0):
-                self.sub_info.append([sub_mass, self.triangles[i], 0, False])
+                self.p_mass.append(sub_mass)
+                self.hpd_nodes.append(0) #will be calculated after boundary classification
+                self.subdivided.append(False)
 
             #accumulate the probability mass now
             total_mass += sub_mass
@@ -320,6 +325,7 @@ class Dirichlet_Distribution:
         #print(f"total domain mass is {total_mass}")
 
 
+    '''
     #function to get threshold density t, determines subtriangles in or out of HPD region
     def getThresholdDensity(self, p):
         p = toMpMath(p)
@@ -350,10 +356,7 @@ class Dirichlet_Distribution:
             if ((1 / area_sub) * toMpMath(self.sub_info[i][0])) > R:
                 R = toMpMath((1 / area_sub) * toMpMath(self.sub_info[i][0]))
 
-        '''
-        #iterate 20 times and perform bisection each time on the list of subtriangle densities
-        for j in range(0, 20):
-        '''
+       
         #iterate until threshold density gives probability mass within tolerance of desired p
         g = 0
         while (abs(g - p) < 1e-5):
@@ -381,7 +384,7 @@ class Dirichlet_Distribution:
                 print(f"{j} bisections performed: g={g} and g-p={abs(g-p)}")
 
         return M
-            
+    '''
 
 if __name__ == "__main__":
     main()
