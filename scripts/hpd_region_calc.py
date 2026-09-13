@@ -328,8 +328,20 @@ class Dirichlet_Distribution:
         print(f"total domain mass is {total_mass}")
 
     def calcHPDArea(self):
+
+        hpd_area = 0
+
         self.integrateWithGQ() #calculate Gaussian mass in each subtriangle
         self.getThresholdDensity(0.95)
+
+        for i in range(len(self.triangles)):
+            if(self.hpd_nodes[i] == 13):
+                hpd_area += self.getSubArea(self.triangles[i])
+            elif(self.hpd_nodes[i] == 0):
+                continue
+        
+        print(f"HPD Area is {hpd_area}")
+
 
     def getThresholdDensity(self, p):
 
@@ -343,13 +355,19 @@ class Dirichlet_Distribution:
 
         #get initial estimation for threshold density from a descending sort of density
         threshold_init = 0
+        self.hpd_nodes = np.zeros(len(self.p_mass))
         for i in range(len(self.p_mass)):
             if(threshold_init < p):
                 threshold_init += self.p_mass[p_mass_indices[i]] #accumulate probability mass from largest to smallest
+                self.hpd_nodes[p_mass_indices[i]] = 13 #temporarily classify subtriangle as in HPD 
             else:
-                break
+                self.hpd_nodes[p_mass_indices[i]] = 0
         print(f"Threshold init is {threshold_init}")
-        
+
+        #now classify the boundary
+
+        return threshold_init
+      
 
 
     '''
