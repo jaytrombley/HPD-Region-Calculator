@@ -24,10 +24,10 @@ mp.mp.dps = 35
 def main():
 
     #alpha params for dirichlet distribution here
-    alpha1 = 1
-    alpha2 = 2
-    alpha3 = 3
-    alphas = [toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3)]
+    alpha1 = 5
+    alpha2 = 5
+    alpha3 = 5
+    alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
     resolution = 35
     resolution_ts = mp.mpf('0.001')
@@ -129,13 +129,13 @@ class Dirichlet_Distribution:
     The last column represents six nodes, as there are six different permutations of these three distinct barycentric coordinates. 
     Hence, these represent the 13 distinct nodes that will be sampled in every smooth subtriangle.
     '''
-    ralpha = [toMpMath(1/3), mp.mpf('0.479308067841920'),  mp.mpf('0.869739794195568'),  mp.mpf('0.048690315425316')]
-    rbeta = [toMpMath(1/3),  mp.mpf('0.260345966079040'),  mp.mpf('0.065130102902216'),  mp.mpf('0.312865496004874')]
-    rgamma = [toMpMath(1/3), mp.mpf('0.260345966079040'), mp.mpf('0.065130102902216'), mp.mpf('0.638444188569810')]
+    ralpha = (toMpMath(1/3), mp.mpf('0.479308067841920'),  mp.mpf('0.869739794195568'),  mp.mpf('0.048690315425316'))
+    rbeta = (toMpMath(1/3),  mp.mpf('0.260345966079040'),  mp.mpf('0.065130102902216'),  mp.mpf('0.312865496004874'))
+    rgamma = (toMpMath(1/3), mp.mpf('0.260345966079040'), mp.mpf('0.065130102902216'), mp.mpf('0.638444188569810'))
 
     #weights at the nodes above. Each column from above will use the weight corresponding the the column below.
     #for example, the point (1/3, 1/3, 1/3) on each subtriangle will have the weight -0.14957...
-    weights = [mp.mpf('-0.149570044467682'),  mp.mpf('0.175615257433208'),  mp.mpf('0.053347235608838'),  mp.mpf('0.077113760890257')]
+    weights = (mp.mpf('-0.149570044467682'),  mp.mpf('0.175615257433208'),  mp.mpf('0.053347235608838'),  mp.mpf('0.077113760890257'))
 
     #mass of the domain, for accountability purposes after performing all calculations
     mass = 0
@@ -161,8 +161,6 @@ class Dirichlet_Distribution:
         #segment sides of triangle for grid to perform numerical integration in barycentric coordinates
         n = mp.linspace(0, 1, a)
 
-        grid = [n, n, n]
-
         #construct list of vertices from L->R (0,0,1) -> (0,1,0) and y=0 to y=sqrt(3)/2
         #construct list of vertex indices
         for i in range(len(n)):
@@ -170,9 +168,12 @@ class Dirichlet_Distribution:
             rowindex = []
             while((i+j) <= (a-1)):
                 rowindex.append(len(self.vertices))
-                self.vertices.append([n[i], n[j], n[a - i - j - 1]])
+                self.vertices.append((n[i], n[j], n[a - i - j - 1])) #
                 j += 1
             self.index_vert.append(list(rowindex))
+        
+        self.vertices = np.array(self.vertices, dtype=object)
+        self.index_vert = np.array(self.index_vert, dtype=object)
 
         #construct list of subtriangles, each characterized by three vertex indices
         for i in range(len(self.index_vert) - 1):
@@ -180,6 +181,8 @@ class Dirichlet_Distribution:
                 self.triangles.append([self.index_vert[i][j], self.index_vert[i][j+1], self.index_vert[i+1][j]])
                 if((j+1) != (len(self.index_vert[i]) - 1)):
                     self.triangles.append([self.index_vert[i][j+1], self.index_vert[i+1][j], self.index_vert[i+1][j+1]])
+
+        self.triangles = np.array(self.triangles, dtype=object)
 
     def getVertices(self):
         print(f"vertices: {self.vertices}")
@@ -322,7 +325,7 @@ class Dirichlet_Distribution:
                 print(f"{i}/{len(self.triangles)} subtriangle masses computed")
 
         ### Uncomment to verify total domain mass ###
-        #print(f"total domain mass is {total_mass}")
+        print(f"total domain mass is {total_mass}")
 
 
     '''
