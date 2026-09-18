@@ -29,7 +29,7 @@ def main():
     alpha3 = 5
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 70
+    resolution = 12
     resolution_ts = mp.mpf('0.001')
 
     dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas)
@@ -171,9 +171,11 @@ class Dirichlet_Distribution:
                 self.vertices.append((n[i], n[j], n[a - i - j - 1])) #
                 j += 1
             self.index_vert.append(list(rowindex))
-        
+
+        '''
         self.vertices = np.array(self.vertices, dtype=object)
         self.index_vert = np.array(self.index_vert, dtype=object)
+        '''
 
         #construct list of subtriangles, each characterized by three vertex indices
         for i in range(len(self.index_vert) - 1):
@@ -182,7 +184,7 @@ class Dirichlet_Distribution:
                 if((j+1) != (len(self.index_vert[i]) - 1)):
                     self.triangles.append([self.index_vert[i][j+1], self.index_vert[i+1][j], self.index_vert[i+1][j+1]])
 
-        self.triangles = np.array(self.triangles, dtype=object)
+        #self.triangles = np.array(self.triangles, dtype=object)
 
     def getVertices(self):
         print(f"vertices: {self.vertices}")
@@ -283,8 +285,8 @@ class Dirichlet_Distribution:
             sub_value += value
         
         #calculate PDF variance in cell for sorting
-        cell_variance = max(cell_values) - min(cell_values)
-        self.subtriangle_variance.append([subtriangle, cell_variance])
+        #cell_variance = max(cell_values) - min(cell_values)
+        #self.subtriangle_variance.append([subtriangle, cell_variance])
 
         return sub_value * self.getSubArea(subtriangle)
 
@@ -333,16 +335,20 @@ class Dirichlet_Distribution:
         self.integrateWithGQ() #calculate Gaussian mass in each subtriangle
 
         #if any parameters are less than 1, will need to subdivide near singularity
-        if((self.alphas[0] < 1) or (self.alphas[1] < 1) or (self.alphas[2] < 1)):
+        if((self.alphas[0] < 0.9) or (self.alphas[1] < 0.9) or (self.alphas[2] < 0.9)):
             for i in range(len(self.triangles)):
                 ts = self.varianceCalculate(self.triangles[i])
                 if ts == True:
-                    self.hpd_nodes[i] == -1
+                    x=1
                 elif ts == False:
                     continue
 
         #calculate thresholding density
         t = self.getThresholdDensity(0.95)
+
+        self.quadTreeDivide(self.triangles[0])
+        self.getVertices()
+
 
         #fill out list of hpd_nodes
         
@@ -389,7 +395,55 @@ class Dirichlet_Distribution:
             print(f"This subtriangle is not on a border!")
             return False
 
+    #subdivide triangles with singular borders
+    def quadTreeDivide(self, subtriangle):
 
+        #calculate midpoints of subtriangle sides
+        midpoint_1 = []
+        midpoint_2 = []
+        midpoint_3 = []
+
+        #calculate bc coords of midpoints
+        for i in range(3):
+            lambda_01 = (self.vertices[subtriangle[0]][i] + self.vertices[subtriangle[1]][i]) / 2
+            lambda_11 = (self.vertices[subtriangle[2]][i] + self.vertices[subtriangle[0]][i]) / 2
+            lambda_21 = (self.vertices[subtriangle[1]][i] + self.vertices[subtriangle[2]][i]) / 2
+            midpoint_1.append(lambda_01)
+            midpoint_2.append(lambda_11)
+            midpoint_3.append(lambda_21)
+
+        '''
+        self.vertices = self.vertices.tolist()
+        self.index_vert = self.index_vert.tolist()
+        '''
+        
+        #append these new points to our master vertices list
+        self.vertices.append(midpoint_1)
+        self.vertices.append(midpoint_2)
+        self.vertices.append(midpoint_3)
+
+        #add indices to our master vertex index list to be able to reference these new points
+        index_1 = self.index_vert[-1][-1]+1 
+        index_2 = self.index_vert[-1][-1]+2
+        index_3 = self.index_vert[-1][-1]+3
+
+        self.index_vert.append([index_1, index_2, index_3])
+
+        self.triangles.append([subtriangle[0], index_1, index_2])
+        self.triangles.append([index_1, index_2, index_3])
+        self.triangles.append([index_1, subtriangle[1], index_3])
+        self.triangles.append([index_2, index_3, subtriangle[2]])
+
+        for i in range(4):
+            self.hpd_nodes.append(0)
+
+        '''
+        self.vertices = np.array(self.vertices, dtype=object)
+        self.index_vert = np.array(self.index_vert)
+
+        self.index_vert = np.append(self.index_vert, [index_1, index_2, index_3], axis=0)
+        '''
+        
     #initial estimate for getting thresholding density+
     def getThresholdDensity(self, p):
 
@@ -411,6 +465,8 @@ class Dirichlet_Distribution:
             else:
                 self.hpd_nodes[p_mass_indices[i]] = 0
         print(f"Threshold init is {threshold_init}")
+
+        self.hpd_nodes = self.hpd_nodes.tolist()
 
         #now classify the boundary
 
