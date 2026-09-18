@@ -24,12 +24,12 @@ mp.mp.dps = 35
 def main():
 
     #alpha params for dirichlet distribution here
-    alpha1 = 5
+    alpha1 = 0.8
     alpha2 = 5
     alpha3 = 5
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 12
+    resolution = 7
     resolution_ts = mp.mpf('0.001')
 
     dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas)
@@ -295,11 +295,10 @@ class Dirichlet_Distribution:
         total_mass = 0 #should equal 1 at the end
 
         #check if this is the first time integrating the domain
-        if self.iterator > 0:
-            self.subtriangle_variance = []
+        #if self.iterator > 0:
+        #    self.subtriangle_variance = []
 
         print("\ncalculating probability masses...\n")
-
         #for each subtriangle in the domain, calculate the probability mass it contains
         for i in range(len(self.triangles)):
             sub_mass = toMpMath(self.gaussQuadSub(self.triangles[i]))
@@ -307,12 +306,16 @@ class Dirichlet_Distribution:
             #if this is NOT the first pass, check for any divided subtriangles from AMR
             if(self.iterator == 1):
                 if(self.subdivided[i] == True): #set parent subtriangle properties to zero
-                    self.p_mass[i] = 0 
+                    self.p_mass[i] = 0
+                    sub_mass = 0 
                     self.hpd_nodes[i] = 0
                     continue
-                else:
+                elif(self.subdivided[i] == False):# and (i >= 1521):
                     self.p_mass[i] = sub_mass
                     self.hpd_nodes[i] = 0 #nodes in HPD will come later
+                else:
+                    continue
+            
 
             #if this is the first pass, fill out p_mass, hpd_nodes, subdivided
             elif(self.iterator == 0):
@@ -321,52 +324,67 @@ class Dirichlet_Distribution:
                 self.subdivided.append(False)
 
             #accumulate the probability mass now
-            total_mass += sub_mass
+            total_mass += self.p_mass[i]
             if i % 5000 == 0:
                 print(f"{i}/{len(self.triangles)} subtriangle masses computed")
 
         ### Uncomment to verify total domain mass ###
-        print(f"total domain mass is {total_mass}")
+        print(f"total domain mass is {total_mass} for iteration {self.iterator +1}")
+        print(self.p_mass)
+        #print(self.subdivided)
 
     def calcHPDArea(self):
 
         hpd_area = 0
 
         self.integrateWithGQ() #calculate Gaussian mass in each subtriangle
+        x = len(self.triangles)
 
         #if any parameters are less than 1, will need to subdivide near singularity
-        if((self.alphas[0] < 0.9) or (self.alphas[1] < 0.9) or (self.alphas[2] < 0.9)):
-            for i in range(len(self.triangles)):
+        if((self.alphas[0] < 0.9) or (self.alphas[1] < 0.9) or (self.alphas[2] < 0.9)): #or if total domain mass is < 0.99
+            for i in range(x):
                 ts = self.varianceCalculate(self.triangles[i])
                 if ts == True:
-                    x=1
+                    self.quadTreeDivide(self.triangles[i])
+                    self.subdivided.append(True)
                 elif ts == False:
+                    self.subdivided.append(False)
                     continue
 
         #calculate thresholding density
         t = self.getThresholdDensity(0.95)
 
-        self.quadTreeDivide(self.triangles[0])
-        self.getVertices()
-
 
         #fill out list of hpd_nodes
         
 
-        for i in range(len(self.triangles)):
+        for i in range(x):
             if(self.hpd_nodes[i] == 13):
                 hpd_area += self.getSubArea(self.triangles[i])
             elif(self.hpd_nodes[i] == 0):
                 continue
         
         print(f"HPD Area is {hpd_area}")
+        self.iterator = 1
+        hpd_area = 0
+
+        self.integrateWithGQ()
+        t = self.getThresholdDensity(0.95)
+        for i in range(len(self.triangles)):
+            if(self.hpd_nodes[i] == 13):
+                hpd_area += self.getSubArea(self.triangles[i])
+            elif(self.hpd_nodes[i] == 0):
+                continue
+                
+        print(f"HPD Area is {hpd_area}")
+
 
     #determine variance in near-edge PDF from centroid PDF for all three vertices.
     def varianceCalculate(self, subtriangle):
         on_border = False
 
         for i in range(3):
-            if self.vertices[self.subtriangle[i]] < 1e-15:
+            if (self.vertices[subtriangle[i]][0] < 1e-15) or (self.vertices[subtriangle[i]][1] < 1e-15) or (self.vertices[subtriangle[i]][2] < 1e-15):
                 on_border = True
             else:
                 continue
@@ -379,20 +397,19 @@ class Dirichlet_Distribution:
             nv2 = self.localBCfromRefBC(subtriangle, [0.025, 0.95, 0.025])
             nv3 = self.localBCfromRefBC(subtriangle, [0.025, 0.025, 0.95])
 
-            var1 = mp.abs(dirichletpdf(nv1, self.alphas) - dirichletpdf(centroid, self.alphas))
-            var2 = mp.abs(dirichletpdf(nv2, self.alphas) - dirichletpdf(centroid, self.alphas))
-            var3 = mp.abs(dirichletpdf(nv3, self.alphas) - dirichletpdf(centroid, self.alphas))
+            var1 = abs(dirichletpdf(nv1, self.alphas) - dirichletpdf(centroid, self.alphas))
+            var2 = abs(dirichletpdf(nv2, self.alphas) - dirichletpdf(centroid, self.alphas))
+            var3 = abs(dirichletpdf(nv3, self.alphas) - dirichletpdf(centroid, self.alphas))
 
-            max_var = max(np.array([var1, var2, var3], dtype=object))
+            max_var = max(np.array([abs(var1), abs(var2), abs(var3)], dtype=object))
 
-            if max_var > 1e2:
+            if max_var > 1e1:
                 ts_candidate = True
-            elif max_var < 1e2:
+            elif max_var < 1e1:
                 ts_candidate = False
 
             return ts_candidate
         else:
-            print(f"This subtriangle is not on a border!")
             return False
 
     #subdivide triangles with singular borders
@@ -436,6 +453,7 @@ class Dirichlet_Distribution:
 
         for i in range(4):
             self.hpd_nodes.append(0)
+            self.p_mass.append(0)
 
         '''
         self.vertices = np.array(self.vertices, dtype=object)
@@ -449,6 +467,7 @@ class Dirichlet_Distribution:
 
         #sort subtriangles by density; not mass, because subtriangle area may vary
         tmp_density_array = []
+        print(f"length p mass = {len(self.p_mass)} and length tri = {len(self.triangles)}")
         for i in range(len(self.p_mass)):
             tmp_density_array.append(self.p_mass[i] / self.getSubArea(self.triangles[i]))
         tmp_density_array = np.array([float(x) for x in tmp_density_array])
