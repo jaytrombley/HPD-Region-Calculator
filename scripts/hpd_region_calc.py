@@ -290,7 +290,6 @@ class Dirichlet_Distribution:
 
     #function to integrate PDF across the Dirichlet distribution domain
     def integrateWithGQ(self):
-        integral_list = []
         total_mass = 0 #should equal 1 at the end
 
         #check if this is the first time integrating the domain
@@ -332,7 +331,21 @@ class Dirichlet_Distribution:
         hpd_area = 0
 
         self.integrateWithGQ() #calculate Gaussian mass in each subtriangle
-        self.getThresholdDensity(0.95)
+
+        #if any parameters are less than 1, will need to subdivide near singularity
+        if((self.alphas[0] < 1) or (self.alphas[1] < 1) or (self.alphas[2] < 1)):
+            for i in range(len(self.triangles)):
+                ts = self.varianceCalculate(self.triangles[i])
+                if ts == True:
+                    self.hpd_nodes[i] == -1
+                elif ts == False:
+                    continue
+
+        #calculate thresholding density
+        t = self.getThresholdDensity(0.95)
+
+        #fill out list of hpd_nodes
+        
 
         for i in range(len(self.triangles)):
             if(self.hpd_nodes[i] == 13):
@@ -342,7 +355,42 @@ class Dirichlet_Distribution:
         
         print(f"HPD Area is {hpd_area}")
 
+    #determine variance in near-edge PDF from centroid PDF for all three vertices.
+    def varianceCalculate(self, subtriangle):
+        on_border = False
 
+        for i in range(3):
+            if self.vertices[self.subtriangle[i]] < 1e-15:
+                on_border = True
+            else:
+                continue
+
+        if on_border == True:
+            centroid = self.localBCfromRefBC(subtriangle, [1/3,1/3,1/3])
+
+            #calculate the three near-vertex points 
+            nv1 = self.localBCfromRefBC(subtriangle, [0.95, 0.025, 0.025])
+            nv2 = self.localBCfromRefBC(subtriangle, [0.025, 0.95, 0.025])
+            nv3 = self.localBCfromRefBC(subtriangle, [0.025, 0.025, 0.95])
+
+            var1 = mp.abs(dirichletpdf(nv1, self.alphas) - dirichletpdf(centroid, self.alphas))
+            var2 = mp.abs(dirichletpdf(nv2, self.alphas) - dirichletpdf(centroid, self.alphas))
+            var3 = mp.abs(dirichletpdf(nv3, self.alphas) - dirichletpdf(centroid, self.alphas))
+
+            max_var = max(np.array([var1, var2, var3], dtype=object))
+
+            if max_var > 1e2:
+                ts_candidate = True
+            elif max_var < 1e2:
+                ts_candidate = False
+
+            return ts_candidate
+        else:
+            print(f"This subtriangle is not on a border!")
+            return False
+
+
+    #initial estimate for getting thresholding density+
     def getThresholdDensity(self, p):
 
         #sort subtriangles by density; not mass, because subtriangle area may vary
@@ -367,7 +415,15 @@ class Dirichlet_Distribution:
         #now classify the boundary
 
         return threshold_init
-      
+
+    '''
+    def classifyBoundary(self, t):
+        for i in range(len(self.triangles)):
+            if (self.p_mass[i] / self.getSubArea(self.triangles[i]) >= t):
+                self.hpd_nodes.append(13)
+            elif (self.p_mass[i] / self.getSubArea(self.triangles[i]) < t):
+                self.hpd_nodes.append(0)
+    '''
 
 
     '''
