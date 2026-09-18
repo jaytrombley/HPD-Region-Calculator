@@ -29,7 +29,7 @@ def main():
     alpha3 = 5
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 70
+    resolution = 40
     resolution_ts = mp.mpf('0.001')
 
     dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas)
@@ -341,10 +341,10 @@ class Dirichlet_Distribution:
 
     def calcHPDArea(self):
 
-        hpd_area = 0
 
         self.integrateWithGQ() #calculate Gaussian mass in each subtriangle
         #x = len(self.triangles)
+        #print(self.hpd_nodes)
 
         #if any parameters are less than 1, will need to subdivide near singularity
         if((self.alphas[0] < 0.9) or (self.alphas[1] < 0.9) or (self.alphas[2] < 0.9)): #or if total domain mass is < 0.99
@@ -352,29 +352,21 @@ class Dirichlet_Distribution:
 
         #calculate threshold density
         t = self.getThresholdDensity(0.95)
+        #print(self.hpd_nodes)
 
 
         #mesh conversion study -> refine mesh uniformly, wait till pdf answer in cell plateaus in one singular cell near singularity
         #final check with total domain mass
         #find ideal combination of tanh-sinh and subdivision
 
-        for i in range(len(self.triangles)):
-            if(self.hpd_nodes[i] == 13):
-                hpd_area += self.getSubArea(self.triangles[i])
-            elif(self.hpd_nodes[i] == 0):
-                continue
+        hpd_area = self.sumHPDTriangles()
         
         print(f"HPD Area is {hpd_area}")
         self.iterator = 1
-        hpd_area = 0
 
         self.integrateWithGQ()
         t = self.getThresholdDensity(0.95)
-        for i in range(len(self.triangles)):
-            if(self.hpd_nodes[i] == 13):
-                hpd_area += self.getSubArea(self.triangles[i])
-            elif(self.hpd_nodes[i] == 0):
-                continue
+        hpd_area = self.sumHPDTriangles()
                 
         print(f"HPD Area is {hpd_area}")
 
@@ -411,6 +403,17 @@ class Dirichlet_Distribution:
             return ts_candidate
         else:
             return False
+
+    #function to calculate area of HPD using info contained in self.hpd_nodes
+    def sumHPDTriangles(self):
+        hpd_area = 0
+        for i in range(len(self.triangles)):
+            if(self.hpd_nodes[i] == 13):
+                hpd_area += self.getSubArea(self.triangles[i])
+            elif(self.hpd_nodes[i] == 0):
+                continue
+
+        return hpd_area
 
     def singularitySubDivide(self):
         divide_counts = 0
@@ -489,7 +492,7 @@ class Dirichlet_Distribution:
 
         #sort subtriangles by density; not mass, because subtriangle area may vary
         tmp_density_array = []
-        print(f"length p mass = {len(self.p_mass)} and length tri = {len(self.triangles)}")
+
         for i in range(len(self.p_mass)):
             tmp_density_array.append(self.p_mass[i] / self.getSubArea(self.triangles[i]))
         tmp_density_array = np.array([float(x) for x in tmp_density_array])
@@ -498,16 +501,17 @@ class Dirichlet_Distribution:
 
         #get initial estimation for threshold density from a descending sort of density
         threshold_init = 0
-        self.hpd_nodes = np.zeros(len(self.p_mass))
+        #self.hpd_nodes = np.zeros(len(self.p_mass))
         for i in range(len(self.p_mass)): #convert to cumulative sum
             if(threshold_init < p):
+                #print("true")
                 threshold_init += self.p_mass[p_mass_indices[i]] #accumulate probability mass from largest to smallest
                 self.hpd_nodes[p_mass_indices[i]] = 13 #temporarily classify subtriangle as in HPD 
+                
             else:
                 self.hpd_nodes[p_mass_indices[i]] = 0
         print(f"Threshold init is {threshold_init}")
 
-        self.hpd_nodes = self.hpd_nodes.tolist()
 
         #now classify the boundary
 
