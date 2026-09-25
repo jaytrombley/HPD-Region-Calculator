@@ -25,8 +25,8 @@ def main():
 
     #alpha params for dirichlet distribution here
     alpha1 = 7
-    alpha2 = 7
-    alpha3 = 0.5
+    alpha2 = 3
+    alpha3 = 0.4
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
     resolution = 201
@@ -155,6 +155,7 @@ class Dirichlet_Distribution:
 
     #iterator check: 0=first pass, 1=second pass, 2=3rd pass. This is for if we decide to do a subtriangle division after one 'pass', or pdf calculation across the domain.
     iterator = 0
+    length_record = 0 #value for keeping track of already-computed subtriangles
 
     #constructor
     def __init__(self, a, h, params, p):
@@ -245,8 +246,8 @@ class Dirichlet_Distribution:
         o = f"Resolution: n={self.res}"
         plt.figtext(0.375, 0.075, o)
 
-        plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
-        #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
+        #plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
+        plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
 
     def plotHPDRegion(self):
         self.plotSimplex()
@@ -259,7 +260,8 @@ class Dirichlet_Distribution:
                     x_tri.append(x)
                     y_tri.append(y)
             plt.plot(x_tri, y_tri, 'r.')
-        plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
+        plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
+        #plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
         
 
     #function for obtaining subtriangle area; used in the event AMR is employed and subtriangles are not uniform area
@@ -323,36 +325,26 @@ class Dirichlet_Distribution:
             value = f_dirichlet * toMpMath(sub_nodes[i][1])
             cell_values.append(value)
             sub_value += value
-        
-        #calculate PDF variance in cell for sorting
-        #cell_variance = max(cell_values) - min(cell_values)
-        #self.subtriangle_variance.append([subtriangle, cell_variance])
 
         return sub_value * self.getSubArea(subtriangle)
 
     #function to integrate PDF across the Dirichlet distribution domain
-    def integrateWithGQ(self):
-        total_mass = 0 #should equal 1 at the end
-
-        #check if this is the first time integrating the domain
-        #if self.iterator > 0:
-        #    self.subtriangle_variance = []
+    def integrateWithGQ(self): #potentially make this function only recalculate subdivided triangles for degenerate cases
+        #total_mass = self.total_mass #should equal 1 at the end
 
         print("\ncalculating probability masses...\n")
         #for each subtriangle in the domain, calculate the probability mass it contains
+        '''
         for i in range(len(self.triangles)):
-            sub_mass = toMpMath(self.gaussQuadSub(self.triangles[i]))
-
-            #print(self.subdivided) 0.32226791162752778530758663045297627
 
             #if this is NOT the first pass, check for any divided subtriangles from AMR
             if(self.iterator == 1):
                 if(self.subdivided[i] == True) or (self.subdivided[i] == 1): #set parent subtriangle properties to zero
                     self.p_mass[i] = 0
-                    sub_mass = 0 
                     self.hpd_nodes[i] = 0
                     continue
                 elif(self.subdivided[i] == False) or (self.subdivided[i] == 0):# and (i >= 1521):
+                    sub_mass = toMpMath(self.gaussQuadSub(self.triangles[i]))
                     self.p_mass[i] = sub_mass
                     self.hpd_nodes[i] = 0 #nodes in HPD will come later
                 else:
@@ -361,6 +353,7 @@ class Dirichlet_Distribution:
 
             #if this is the first pass, fill out p_mass, hpd_nodes, subdivided
             elif(self.iterator == 0):
+                sub_mass = toMpMath(self.gaussQuadSub(self.triangles[i]))
                 self.p_mass.append(sub_mass)
                 self.hpd_nodes.append(0) #will be calculated after boundary classification
                 self.subdivided.append(False)
@@ -369,17 +362,41 @@ class Dirichlet_Distribution:
             total_mass += self.p_mass[i]
             if i % 5000 == 0:
                 print(f"{i}/{len(self.triangles)} subtriangle masses computed")
+        '''
+        if(self.iterator == 1):
+            for i in range(self.length_record, len(self.triangles)):
+                if(self.subdivided[i] == True) or (self.subdivided[i] == 1): #set parent subtriangle properties to zero
+                    self.p_mass[i] = 0
+                    self.hpd_nodes[i] = 0
+                    continue
+                elif(self.subdivided[i] == False) or (self.subdivided[i] == 0):
+                    sub_mass = toMpMath(self.gaussQuadSub(self.triangles[i]))
+                    self.p_mass[i] = sub_mass
+                    self.hpd_nodes[i] = 0 #nodes in HPD will come later
+                else:
+                    continue
 
-        '''
-        for j in range(len(self.triangles)):
-            #if(self.subdivided[j] != True):
-            print(f"p mass: {self.p_mass[j]}, triangle: {self.triangles[j]}, subdivided: {self.subdivided[j]}, varcalc: {self.varianceCalculate(self.triangles[j])}")
-        '''
+                #accumulate the probability mass now
+                self.total_mass += self.p_mass[i]
+                if i % 5000 == 0:
+                    print(f"{i}/{len(self.triangles)} subtriangle masses computed")
+
+        elif(self.iterator == 0):
+            for i in range(len(self.triangles)):
+                sub_mass = toMpMath(self.gaussQuadSub(self.triangles[i]))
+                self.p_mass.append(sub_mass)
+                self.hpd_nodes.append(0) #will be calculated after boundary classification
+                self.subdivided.append(False)
+
+            #accumulate the probability mass now
+                self.total_mass += self.p_mass[i]
+                if i % 5000 == 0:
+                    print(f"{i}/{len(self.triangles)} subtriangle masses computed")
 
         ### Uncomment to verify total domain mass ###
-        self.total_mass = total_mass
+        #self.total_mass = total_mass
         self.p_mass = np.array(self.p_mass, dtype = object)
-        print(f"total domain mass is {total_mass} for iteration {self.iterator +1}")
+        print(f"total domain mass is {self.total_mass}")
         #print(self.p_mass)
         #print(self.subdivided)
 
@@ -391,56 +408,23 @@ class Dirichlet_Distribution:
 
         hpd_area = self.sumHPDTriangles()
         
-        print(f"HPD Area is {hpd_area}")
+        print(f"HPD Area for params {self.alphas} is {hpd_area}")
 
         if((self.alphas[0] < 0.9) or (self.alphas[1] < 0.9) or (self.alphas[2] < 0.9)): #or if total domain mass is < 0.99
             self.iterator = 1
             division_counts = 0
-            while (self.total_mass < 0.99):
+            while (self.total_mass < 0.99): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
                 self.singularitySubDivide()
                 self.integrateWithGQ()
                 t = self.getThresholdDensity(0.95)
                 hpd_area = self.sumHPDTriangles()
                             
-                print(f"HPD Area is {hpd_area}")
+                print(f"HPD Area for params {self.alphas} is {hpd_area} for iteration {division_counts + 2}")
                 division_counts += 1
 
         print(f"the process took {division_counts} levels of subdivision")
         #self.iterator = 1
 
-        
-
-        '''
-        if((self.alphas[0] < 0.9) or (self.alphas[1] < 0.9) or (self.alphas[2] < 0.9)): #or if total domain mass is < 0.99
-            self.singularitySubDivide()
-
-        self.integrateWithGQ()
-        t = self.getThresholdDensity(0.95)
-        hpd_area = self.sumHPDTriangles()
-                        
-        print(f"HPD Area is {hpd_area}")
-
-        if((self.alphas[0] < 0.9) or (self.alphas[1] < 0.9) or (self.alphas[2] < 0.9)): #or if total domain mass is < 0.99
-            self.singularitySubDivide()
-        
-        self.integrateWithGQ()
-        t = self.getThresholdDensity(0.95)
-        hpd_area = self.sumHPDTriangles()
-                                
-        print(f"HPD Area is {hpd_area}")
-
-        if((self.alphas[0] < 0.9) or (self.alphas[1] < 0.9) or (self.alphas[2] < 0.9)): #or if total domain mass is < 0.99
-            self.singularitySubDivide()
-                
-        self.integrateWithGQ()
-        t = self.getThresholdDensity(0.95)
-        hpd_area = self.sumHPDTriangles()
-                                        
-        print(f"HPD Area is {hpd_area}")        
-        '''
-        #implement mesh conversion study, check when pdf mass plateaus with recursive uniform mesh divisions
-        # Check with probability mass
-        #   
 
     #determine variance in near-edge PDF from centroid PDF for all three vertices.
     def varianceCalculate(self, subtriangle):
@@ -460,11 +444,14 @@ class Dirichlet_Distribution:
             nv2 = self.localBCfromRefBC(subtriangle, [0.025, 0.95, 0.025])
             nv3 = self.localBCfromRefBC(subtriangle, [0.025, 0.025, 0.95])
 
-            var1 = abs(dirichletpdf(nv1, self.alphas) - dirichletpdf(centroid, self.alphas))
-            var2 = abs(dirichletpdf(nv2, self.alphas) - dirichletpdf(centroid, self.alphas))
-            var3 = abs(dirichletpdf(nv3, self.alphas) - dirichletpdf(centroid, self.alphas))
+            #calculate pdfs of near-vertex pts and centroid
+            pdfnodes = [toMpMath(dirichletpdf(nv1, self.alphas)), toMpMath(dirichletpdf(nv2, self.alphas)),\
+                toMpMath(dirichletpdf(nv3, self.alphas)), toMpMath(dirichletpdf(centroid, self.alphas))]
 
-            max_var = max(np.array([abs(var1), abs(var2), abs(var3)], dtype=object))
+            minpdf = toMpMath(min(pdfnodes))
+            maxpdf = toMpMath(max(pdfnodes))
+
+            max_var = maxpdf - minpdf
 
             if max_var > 1e1:
                 ts_candidate = True
@@ -486,22 +473,27 @@ class Dirichlet_Distribution:
 
         return hpd_area
 
-    def singularitySubDivide(self):
+    def singularitySubDivide(self): 
         divide_counts = 0
 
+        self.length_record = len(self.triangles) #record number of subtriangles now
+        self.total_mass = 0 #set total mass to zero for recalculation later
         #iterate through subtriangles, calculate variance, divide if variance exceeds threshold
         for i in range(len(self.triangles)):
-                ts = self.varianceCalculate(self.triangles[i])
-                if ((ts == True) and (self.subdivided[i] == 0)):
-                    self.quadTreeDivide(self.triangles[i])
-                    self.subdivided[i] = True
-                    divide_counts +=1
-                    #print("true")
-                elif((ts == True) and (self.subdivided[i] == 1)):
-                    continue
-                elif ts == False:
-                    self.subdivided[i] = False
-                    continue
+            ts = self.varianceCalculate(self.triangles[i])
+            if ((ts == True) and (self.subdivided[i] == 0)):
+                self.quadTreeDivide(self.triangles[i])
+                self.subdivided[i] = True
+                self.p_mass[i] = 0
+                self.hpd_nodes[i] = 0
+                divide_counts +=1 #for counting number of triangles divided
+            elif((ts == True) and (self.subdivided[i] == 1)):
+                continue
+            elif ts == False:
+                self.total_mass += self.p_mass[i] #get partial p-mass for accumulation later via integrate with GQ function
+                self.subdivided[i] = False
+                continue
+            
 
         #need to allocate more values to subtriangle property arrays
         p_mass_append = np.zeros(4 * divide_counts)
