@@ -24,19 +24,19 @@ mp.mp.dps = 35
 def main():
 
     #alpha params for dirichlet distribution here
-    alpha1 = 5
-    alpha2 = 0.5
-    alpha3 = 5
+    alpha1 = 7
+    alpha2 = 7
+    alpha3 = 0.5
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 4
+    resolution = 201
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
     dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas, p)
     dirichlet_object.plotSimplex()
     dirichlet_object.calcHPDArea()
-    dirichlet_object.plotSimplex()
+    dirichlet_object.plotHPDRegion()
 
 
 #function for ensuring all floating point numbers are in mpmath precision
@@ -217,6 +217,8 @@ class Dirichlet_Distribution:
             x, y = bc2xy(self.vertices[i])
             plt.plot(x, y, 'k.')
 
+        #plot the mesh if uncommented
+        '''
         for i in range(len(self.triangles)):
             x_list = []
             y_list = []
@@ -228,8 +230,8 @@ class Dirichlet_Distribution:
             x_list.append(x)
             y_list.append(y)
             plt.plot(x_list, y_list, 'r-')
-
-        #if self.iterator == 1:
+        '''
+        
 
 
         #for reference, plot the three vertices of the parent triangle and label them
@@ -245,6 +247,20 @@ class Dirichlet_Distribution:
 
         plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
         #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
+
+    def plotHPDRegion(self):
+        self.plotSimplex()
+        for i in range(len(self.triangles)):
+            x_tri = []
+            y_tri = []
+            if(self.hpd_nodes[i] > 0):
+                for j in range(3):
+                    x, y = bc2xy(self.vertices[self.triangles[i][j]])
+                    x_tri.append(x)
+                    y_tri.append(y)
+            plt.plot(x_tri, y_tri, 'r.')
+        plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
+        
 
     #function for obtaining subtriangle area; used in the event AMR is employed and subtriangles are not uniform area
     def getSubArea(self, subtriangle):
@@ -555,26 +571,60 @@ class Dirichlet_Distribution:
         for i in range(len(self.p_mass)):
             tmp_density_array.append(self.p_mass[i] / self.getSubArea(self.triangles[i]))
         tmp_density_array = np.array([float(x) for x in tmp_density_array])
-        p_mass_indices = np.argsort(tmp_density_array)[::-1] #get indices for largest -> smallest mass triangles
+        p_mass_indices = np.argsort(tmp_density_array)[::-1] #get indices for largest -> smallest density triangles
         del tmp_density_array
 
         #get initial estimation for threshold density from a descending sort of density
         threshold_init = 0
+        threshold_real = 0
         #self.hpd_nodes = np.zeros(len(self.p_mass))
         for i in range(len(self.p_mass)): #convert to cumulative sum
             if(threshold_init < p):
                 #print("true")
                 threshold_init += self.p_mass[p_mass_indices[i]] #accumulate probability mass from largest to smallest
+                if threshold_init > p:
+                    threshold_real = threshold_init - self.p_mass[p_mass_indices[i]] 
                 self.hpd_nodes[p_mass_indices[i]] = 13 #temporarily classify subtriangle as in HPD 
                 
             else:
                 self.hpd_nodes[p_mass_indices[i]] = 0
-        print(f"Threshold init is {threshold_init}")
-
-
-        #now classify the boundary
-
+        #print(f"Threshold init is {threshold_real}")
         return threshold_init
+    '''
+#iterate until threshold density gives probability mass within tolerance of desired p
+        g = 0
+        R = self.p_mass[p_mass_indices[0]] / self.getSubArea(self.triangles[p_mass_indices[0]])
+        L = toMpMath(threshold_real - 1)
+        M = 0
+
+        while (abs(g - p) > 1e-1):
+            g = 0
+            M = toMpMath((L + R) / 2)
+
+            #use midpoint M and calculate proportion of probability mass with subtriangles with densities above M
+            for l in range(len(self.triangles)):
+                if(self.subdivided[p_mass_indices[l]] == True):
+                    continue
+                area_sub = self.getSubArea(self.triangles[p_mass_indices[l]])
+                if(((1 / area_sub) * toMpMath(self.p_mass[p_mass_indices[l]])) > M): #if subtriangle rep. density > M...
+                    g += toMpMath(self.p_mass[p_mass_indices[l]]) #...accumulate the probability mass of the subtriangle
+
+            #if the proportion of the probability mass g is greater than our target p, M too inclusive
+            #M needs to be larger, take the new lower bound L to be the current M
+            if(g > p):
+                L = toMpMath(M)
+
+            #if the proportion g is less than p, then M is too exclusive
+            #M needs to be smaller, take new upper bound R to be the current M, bisect again
+            elif(g < p):
+                R = toMpMath(M)
+            #print(abs(g-p))
+
+        print(f"Threshold density is {M}")
+        return M
+        #now classify the boundary
+    '''
+        
 
     def meshRefinementTest(self, subtriangle):
         self.quadTreeDivide(subtriangle)
