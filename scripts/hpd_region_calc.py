@@ -25,7 +25,7 @@ def main():
 
     #alpha params for dirichlet distribution here
     alpha1 = 5
-    alpha2 = 0.8
+    alpha2 = 0.5
     alpha3 = 5
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
@@ -115,10 +115,11 @@ class Dirichlet_Distribution:
     #distribution parameters
     alphas = [0, 0, 0]
 
-    #resolution of mesh, tanh-sinh step, domain area
+    #resolution of mesh, tanh-sinh step, domain area, total domain mass
     res = 0
     res_ts = 0
     area = mp.mpf('0.5') * (mp.sqrt(mp.mpf('3'))/2)
+    total_mass = 0
 
     '''
     Roots/nodes of the Dunavant 13-point (7-degree) rule. These are the simplex-specific barycentric coordinates for Gaussian quadrature, precalculated.
@@ -356,6 +357,7 @@ class Dirichlet_Distribution:
         '''
 
         ### Uncomment to verify total domain mass ###
+        self.total_mass = total_mass
         self.p_mass = np.array(self.p_mass, dtype = object)
         print(f"total domain mass is {total_mass} for iteration {self.iterator +1}")
         #print(self.p_mass)
@@ -364,40 +366,31 @@ class Dirichlet_Distribution:
     def calcHPDArea(self):
 
 
-        self.integrateWithGQ() #calculate Gaussian mass in each subtriangle
-        #x = len(self.triangles)
-        #print(self.hpd_nodes)
+        self.integrateWithGQ() 
+        t = self.getThresholdDensity(0.95)
 
-        #if any parameters are less than 1, will need to subdivide near singularity
+        hpd_area = self.sumHPDTriangles()
+        
+        print(f"HPD Area is {hpd_area}")
+
         if((self.alphas[0] < 0.9) or (self.alphas[1] < 0.9) or (self.alphas[2] < 0.9)): #or if total domain mass is < 0.99
-            self.singularitySubDivide()
+            self.iterator = 1
+            division_counts = 0
+            while (self.total_mass < 0.99):
+                self.singularitySubDivide()
+                self.integrateWithGQ()
+                t = self.getThresholdDensity(0.95)
+                hpd_area = self.sumHPDTriangles()
+                            
+                print(f"HPD Area is {hpd_area}")
+                division_counts += 1
 
-        #calculate threshold density
-        t = self.getThresholdDensity(0.95)
-        #print(self.hpd_nodes)
+        print(f"the process took {division_counts} levels of subdivision")
+        #self.iterator = 1
 
-        #mesh conversion study -> refine mesh uniformly, wait till pdf answer in cell plateaus in one singular cell near singularity
-        #final check with total domain mass
-        #find ideal combination of tanh-sinh and subdivision
-
-        hpd_area = self.sumHPDTriangles()
         
-        print(f"HPD Area is {hpd_area}")
-        self.iterator = 1
 
-        self.integrateWithGQ()
-        t = self.getThresholdDensity(0.95)
-        hpd_area = self.sumHPDTriangles()
-                
-        print(f"HPD Area is {hpd_area}")
-
-        verification2 = self.gaussQuadSub([0,6,7])
-        ver2 = [self.vertices[0], self.vertices[6], self.vertices[7]]
-        print(f"verification for 0,6,7 is {verification2}, with nodes {ver2}")
-
-        for i in range(len(self.vertices)):
-            print([i, self.vertices[i]])
-        
+        '''
         if((self.alphas[0] < 0.9) or (self.alphas[1] < 0.9) or (self.alphas[2] < 0.9)): #or if total domain mass is < 0.99
             self.singularitySubDivide()
 
@@ -405,15 +398,29 @@ class Dirichlet_Distribution:
         t = self.getThresholdDensity(0.95)
         hpd_area = self.sumHPDTriangles()
                         
-        print(f"HPD Area is {hpd_area}")        
+        print(f"HPD Area is {hpd_area}")
 
-        for i in range(len(self.vertices)):
-            print([i, self.vertices[i]])
-
-        verification1 = self.gaussQuadSub([0, 15, 16])
-        ver1 = [self.vertices[0], self.vertices[15], self.vertices[16]]
-        print(f"verification for 0,15,16 is {verification1}, with nodes {ver1}")
+        if((self.alphas[0] < 0.9) or (self.alphas[1] < 0.9) or (self.alphas[2] < 0.9)): #or if total domain mass is < 0.99
+            self.singularitySubDivide()
         
+        self.integrateWithGQ()
+        t = self.getThresholdDensity(0.95)
+        hpd_area = self.sumHPDTriangles()
+                                
+        print(f"HPD Area is {hpd_area}")
+
+        if((self.alphas[0] < 0.9) or (self.alphas[1] < 0.9) or (self.alphas[2] < 0.9)): #or if total domain mass is < 0.99
+            self.singularitySubDivide()
+                
+        self.integrateWithGQ()
+        t = self.getThresholdDensity(0.95)
+        hpd_area = self.sumHPDTriangles()
+                                        
+        print(f"HPD Area is {hpd_area}")        
+        '''
+        #implement mesh conversion study, check when pdf mass plateaus with recursive uniform mesh divisions
+        # Check with probability mass
+        #   
 
     #determine variance in near-edge PDF from centroid PDF for all three vertices.
     def varianceCalculate(self, subtriangle):
