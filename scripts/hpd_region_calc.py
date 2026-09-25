@@ -24,18 +24,19 @@ mp.mp.dps = 35
 def main():
 
     #alpha params for dirichlet distribution here
-    alpha1 = 7
-    alpha2 = 7
-    alpha3 = 7
-    alphas = [toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3)]
+    alpha1 = 5
+    alpha2 = 0.5
+    alpha3 = 5
+    alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 51
+    resolution = 4
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
     dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas, p)
     dirichlet_object.plotSimplex()
     dirichlet_object.calcHPDArea()
+    dirichlet_object.plotSimplex()
 
 
 #function for ensuring all floating point numbers are in mpmath precision
@@ -67,7 +68,7 @@ def uv2bc(u, v):
 
 #function to convert barycentric coordinates to unit square coordinates (u, v) via Duffy transform
 def bc2uv(x):
-    x = [toMpmath(i) for i in x]
+    x = [toMpMath(i) for i in x]
     u = x[0]
 
     if (u == 1):
@@ -107,19 +108,20 @@ class Dirichlet_Distribution:
     triangles = [] #store subtriangles by their vertex indices
     index_vert = [] #index for keeping track of vertices; index(0,0,1) = 0
 
-    #this array stores relevant information about the mesh and distribution
-    #the i-th entry will be [prob mass of subtriangle i, vertex indices of subtriangle, ...
-        # ..., number of nodes (out of 13) in the HPD region, T/F on whether the subtriangle is split]
-    sub_info = []
+    #these arrays store relevant information about the mesh and distribution
+    p_mass = [] #store probability mass by index of each subtriangle
+    hpd_nodes = [] #store number of nodes contained within the HPD region
+    subdivided = [] #store T/F on whether the subtriangle is divided via AMR
 
     #distribution parameters
     alphas = [0, 0, 0]
 
-    #resolution of mesh, tanh-sinh step, domain area
+    #resolution of mesh, tanh-sinh step, domain area, total domain mass
     res = 0
     res_ts = 0
     p = 0
     area = mp.mpf('0.5') * (mp.sqrt(mp.mpf('3'))/2)
+    total_mass = 0
 
     '''
     Roots/nodes of the Dunavant 13-point (7-degree) rule. These are the simplex-specific barycentric coordinates for Gaussian quadrature, precalculated.
@@ -131,13 +133,13 @@ class Dirichlet_Distribution:
     The last column represents six nodes, as there are six different permutations of these three distinct barycentric coordinates. 
     Hence, these represent the 13 distinct nodes that will be sampled in every smooth subtriangle.
     '''
-    ralpha = [toMpMath(1/3), mp.mpf('0.479308067841920'),  mp.mpf('0.869739794195568'),  mp.mpf('0.048690315425316')]
-    rbeta = [toMpMath(1/3),  mp.mpf('0.260345966079040'),  mp.mpf('0.065130102902216'),  mp.mpf('0.312865496004874')]
-    rgamma = [toMpMath(1/3), mp.mpf('0.260345966079040'), mp.mpf('0.065130102902216'), mp.mpf('0.638444188569810')]
+    ralpha = (toMpMath(1/3), mp.mpf('0.479308067841920'),  mp.mpf('0.869739794195568'),  mp.mpf('0.048690315425316'))
+    rbeta = (toMpMath(1/3),  mp.mpf('0.260345966079040'),  mp.mpf('0.065130102902216'),  mp.mpf('0.312865496004874'))
+    rgamma = (toMpMath(1/3), mp.mpf('0.260345966079040'), mp.mpf('0.065130102902216'), mp.mpf('0.638444188569810'))
 
     #weights at the nodes above. Each column from above will use the weight corresponding the the column below.
     #for example, the point (1/3, 1/3, 1/3) on each subtriangle will have the weight -0.14957...
-    weights = [mp.mpf('-0.149570044467682'),  mp.mpf('0.175615257433208'),  mp.mpf('0.053347235608838'),  mp.mpf('0.077113760890257')]
+    weights = (mp.mpf('-0.149570044467682'),  mp.mpf('0.175615257433208'),  mp.mpf('0.053347235608838'),  mp.mpf('0.077113760890257'))
 
     #mass of the domain, for accountability purposes after performing all calculations
     mass = 0
@@ -165,8 +167,6 @@ class Dirichlet_Distribution:
         #segment sides of triangle for grid to perform numerical integration in barycentric coordinates
         n = mp.linspace(0, 1, a)
 
-        grid = [n, n, n]
-
         #construct list of vertices from L->R (0,0,1) -> (0,1,0) and y=0 to y=sqrt(3)/2
         #construct list of vertex indices
         for i in range(len(n)):
@@ -174,9 +174,17 @@ class Dirichlet_Distribution:
             rowindex = []
             while((i+j) <= (a-1)):
                 rowindex.append(len(self.vertices))
-                self.vertices.append([n[i], n[j], n[a - i - j - 1]])
+                self.vertices.append((n[i], n[j], n[a - i - j - 1])) #
                 j += 1
             self.index_vert.append(list(rowindex))
+
+        '''
+        self.vertices = np.array(self.vertices, dtype=object)
+        self.index_vert = np.array(self.index_vert, dtype=object)
+        '''
+
+        #avoid append, use numpy functions for large arrays
+
 
         #construct list of subtriangles, each characterized by three vertex indices
         for i in range(len(self.index_vert) - 1):
@@ -184,6 +192,8 @@ class Dirichlet_Distribution:
                 self.triangles.append([self.index_vert[i][j], self.index_vert[i][j+1], self.index_vert[i+1][j]])
                 if((j+1) != (len(self.index_vert[i]) - 1)):
                     self.triangles.append([self.index_vert[i][j+1], self.index_vert[i+1][j], self.index_vert[i+1][j+1]])
+
+        #self.triangles = np.array(self.triangles, dtype=object)
 
     def getVertices(self):
         print(f"vertices: {self.vertices}")
@@ -207,6 +217,21 @@ class Dirichlet_Distribution:
             x, y = bc2xy(self.vertices[i])
             plt.plot(x, y, 'k.')
 
+        for i in range(len(self.triangles)):
+            x_list = []
+            y_list = []
+            for j in range(3):
+                x, y = bc2xy(self.vertices[self.triangles[i][j]])
+                x_list.append(x)
+                y_list.append(y)
+            x, y = bc2xy(self.vertices[self.triangles[i][0]])
+            x_list.append(x)
+            y_list.append(y)
+            plt.plot(x_list, y_list, 'r-')
+
+        #if self.iterator == 1:
+
+
         #for reference, plot the three vertices of the parent triangle and label them
         a, b = bc2xy([0, 0, 1])
         plt.plot(a, b, 'co', label='(0, 0, 1)')
@@ -218,7 +243,8 @@ class Dirichlet_Distribution:
         o = f"Resolution: n={self.res}"
         plt.figtext(0.375, 0.075, o)
 
-        plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
+        plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
+        #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
 
     #function for obtaining subtriangle area; used in the event AMR is employed and subtriangles are not uniform area
     def getSubArea(self, subtriangle):
@@ -283,47 +309,287 @@ class Dirichlet_Distribution:
             sub_value += value
         
         #calculate PDF variance in cell for sorting
-        cell_variance = max(cell_values) - min(cell_values)
-        self.subtriangle_variance.append([subtriangle, cell_variance])
+        #cell_variance = max(cell_values) - min(cell_values)
+        #self.subtriangle_variance.append([subtriangle, cell_variance])
 
         return sub_value * self.getSubArea(subtriangle)
 
     #function to integrate PDF across the Dirichlet distribution domain
     def integrateWithGQ(self):
-        integral_list = []
         total_mass = 0 #should equal 1 at the end
 
         #check if this is the first time integrating the domain
-        if self.iterator > 0:
-            self.subtriangle_variance = []
+        #if self.iterator > 0:
+        #    self.subtriangle_variance = []
 
         print("\ncalculating probability masses...\n")
-
         #for each subtriangle in the domain, calculate the probability mass it contains
         for i in range(len(self.triangles)):
             sub_mass = toMpMath(self.gaussQuadSub(self.triangles[i]))
 
+            #print(self.subdivided) 0.32226791162752778530758663045297627
+
             #if this is NOT the first pass, check for any divided subtriangles from AMR
             if(self.iterator == 1):
-                if(self.sub_info[i][3] == True):
-                    self.sub_info[i] = [0, self.triangles[i], 0, True]
+                if(self.subdivided[i] == True) or (self.subdivided[i] == 1): #set parent subtriangle properties to zero
+                    self.p_mass[i] = 0
+                    sub_mass = 0 
+                    self.hpd_nodes[i] = 0
                     continue
+                elif(self.subdivided[i] == False) or (self.subdivided[i] == 0):# and (i >= 1521):
+                    self.p_mass[i] = sub_mass
+                    self.hpd_nodes[i] = 0 #nodes in HPD will come later
                 else:
-                    self.sub_info[i] = [sub_mass, self.triangles[i], 0, False]
+                    continue
+            
 
-            #if this is the first pass, fill out sub_info
+            #if this is the first pass, fill out p_mass, hpd_nodes, subdivided
             elif(self.iterator == 0):
-                self.sub_info.append([sub_mass, self.triangles[i], 0, False])
+                self.p_mass.append(sub_mass)
+                self.hpd_nodes.append(0) #will be calculated after boundary classification
+                self.subdivided.append(False)
 
             #accumulate the probability mass now
-            total_mass += sub_mass
+            total_mass += self.p_mass[i]
             if i % 5000 == 0:
                 print(f"{i}/{len(self.triangles)} subtriangle masses computed")
 
+        '''
+        for j in range(len(self.triangles)):
+            #if(self.subdivided[j] != True):
+            print(f"p mass: {self.p_mass[j]}, triangle: {self.triangles[j]}, subdivided: {self.subdivided[j]}, varcalc: {self.varianceCalculate(self.triangles[j])}")
+        '''
+
         ### Uncomment to verify total domain mass ###
-        #print(f"total domain mass is {total_mass}")
+        self.total_mass = total_mass
+        self.p_mass = np.array(self.p_mass, dtype = object)
+        print(f"total domain mass is {total_mass} for iteration {self.iterator +1}")
+        #print(self.p_mass)
+        #print(self.subdivided)
+
+    def calcHPDArea(self):
 
 
+        self.integrateWithGQ() 
+        t = self.getThresholdDensity(0.95)
+
+        hpd_area = self.sumHPDTriangles()
+        
+        print(f"HPD Area is {hpd_area}")
+
+        if((self.alphas[0] < 0.9) or (self.alphas[1] < 0.9) or (self.alphas[2] < 0.9)): #or if total domain mass is < 0.99
+            self.iterator = 1
+            division_counts = 0
+            while (self.total_mass < 0.99):
+                self.singularitySubDivide()
+                self.integrateWithGQ()
+                t = self.getThresholdDensity(0.95)
+                hpd_area = self.sumHPDTriangles()
+                            
+                print(f"HPD Area is {hpd_area}")
+                division_counts += 1
+
+        print(f"the process took {division_counts} levels of subdivision")
+        #self.iterator = 1
+
+        
+
+        '''
+        if((self.alphas[0] < 0.9) or (self.alphas[1] < 0.9) or (self.alphas[2] < 0.9)): #or if total domain mass is < 0.99
+            self.singularitySubDivide()
+
+        self.integrateWithGQ()
+        t = self.getThresholdDensity(0.95)
+        hpd_area = self.sumHPDTriangles()
+                        
+        print(f"HPD Area is {hpd_area}")
+
+        if((self.alphas[0] < 0.9) or (self.alphas[1] < 0.9) or (self.alphas[2] < 0.9)): #or if total domain mass is < 0.99
+            self.singularitySubDivide()
+        
+        self.integrateWithGQ()
+        t = self.getThresholdDensity(0.95)
+        hpd_area = self.sumHPDTriangles()
+                                
+        print(f"HPD Area is {hpd_area}")
+
+        if((self.alphas[0] < 0.9) or (self.alphas[1] < 0.9) or (self.alphas[2] < 0.9)): #or if total domain mass is < 0.99
+            self.singularitySubDivide()
+                
+        self.integrateWithGQ()
+        t = self.getThresholdDensity(0.95)
+        hpd_area = self.sumHPDTriangles()
+                                        
+        print(f"HPD Area is {hpd_area}")        
+        '''
+        #implement mesh conversion study, check when pdf mass plateaus with recursive uniform mesh divisions
+        # Check with probability mass
+        #   
+
+    #determine variance in near-edge PDF from centroid PDF for all three vertices.
+    def varianceCalculate(self, subtriangle):
+        on_border = False
+
+        for i in range(3):
+            if (self.vertices[subtriangle[i]][0] < 1e-15) or (self.vertices[subtriangle[i]][1] < 1e-15) or (self.vertices[subtriangle[i]][2] < 1e-15):
+                on_border = True
+            else:
+                continue
+
+        if on_border == True:
+            centroid = self.localBCfromRefBC(subtriangle, [1/3,1/3,1/3])
+
+            #calculate the three near-vertex points 
+            nv1 = self.localBCfromRefBC(subtriangle, [0.95, 0.025, 0.025])
+            nv2 = self.localBCfromRefBC(subtriangle, [0.025, 0.95, 0.025])
+            nv3 = self.localBCfromRefBC(subtriangle, [0.025, 0.025, 0.95])
+
+            var1 = abs(dirichletpdf(nv1, self.alphas) - dirichletpdf(centroid, self.alphas))
+            var2 = abs(dirichletpdf(nv2, self.alphas) - dirichletpdf(centroid, self.alphas))
+            var3 = abs(dirichletpdf(nv3, self.alphas) - dirichletpdf(centroid, self.alphas))
+
+            max_var = max(np.array([abs(var1), abs(var2), abs(var3)], dtype=object))
+
+            if max_var > 1e1:
+                ts_candidate = True
+            elif max_var < 1e1:
+                ts_candidate = False
+
+            return ts_candidate
+        else:
+            return False
+
+    #function to calculate area of HPD using info contained in self.hpd_nodes
+    def sumHPDTriangles(self):
+        hpd_area = 0
+        for i in range(len(self.triangles)):
+            if(self.hpd_nodes[i] == 13):
+                hpd_area += self.getSubArea(self.triangles[i])
+            elif(self.hpd_nodes[i] == 0):
+                continue
+
+        return hpd_area
+
+    def singularitySubDivide(self):
+        divide_counts = 0
+
+        #iterate through subtriangles, calculate variance, divide if variance exceeds threshold
+        for i in range(len(self.triangles)):
+                ts = self.varianceCalculate(self.triangles[i])
+                if ((ts == True) and (self.subdivided[i] == 0)):
+                    self.quadTreeDivide(self.triangles[i])
+                    self.subdivided[i] = True
+                    divide_counts +=1
+                    #print("true")
+                elif((ts == True) and (self.subdivided[i] == 1)):
+                    continue
+                elif ts == False:
+                    self.subdivided[i] = False
+                    continue
+
+        #need to allocate more values to subtriangle property arrays
+        p_mass_append = np.zeros(4 * divide_counts)
+        self.p_mass = np.concatenate((self.p_mass, p_mass_append), dtype = object)
+        self.hpd_nodes = np.concatenate((self.hpd_nodes, p_mass_append))
+        self.subdivided = np.concatenate((self.subdivided, p_mass_append))
+
+
+    #subdivide triangles with singular borders
+    def quadTreeDivide(self, subtriangle):
+
+        #calculate midpoints of subtriangle sides
+        midpoint_1 = []
+        midpoint_2 = []
+        midpoint_3 = []
+
+        #calculate bc coords of midpoints
+        for i in range(3):
+            lambda_01 = (self.vertices[subtriangle[0]][i] + self.vertices[subtriangle[1]][i]) / 2
+            lambda_11 = (self.vertices[subtriangle[2]][i] + self.vertices[subtriangle[0]][i]) / 2
+            lambda_21 = (self.vertices[subtriangle[1]][i] + self.vertices[subtriangle[2]][i]) / 2
+            midpoint_1.append(lambda_01)
+            midpoint_2.append(lambda_11)
+            midpoint_3.append(lambda_21)
+
+        '''
+        self.vertices = self.vertices.tolist()
+        self.index_vert = self.index_vert.tolist()
+        '''
+        
+        #append these new points to our master vertices list
+        self.vertices.append(midpoint_1)
+        self.vertices.append(midpoint_2)
+        self.vertices.append(midpoint_3)
+
+        #add indices to our master vertex index list to be able to reference these new points
+        index_1 = self.index_vert[-1][-1]+1 
+        index_2 = self.index_vert[-1][-1]+2
+        index_3 = self.index_vert[-1][-1]+3
+
+        self.index_vert.append([index_1, index_2, index_3])
+
+        self.triangles.append([subtriangle[0], index_1, index_2])
+        self.triangles.append([index_1, index_2, index_3])
+        self.triangles.append([index_1, subtriangle[1], index_3])
+        self.triangles.append([index_2, index_3, subtriangle[2]])
+
+        #self.hpd_nodes = self.hpd_nodes.tolist()
+        #for i in range(4):
+            #self.hpd_nodes.append(0)
+            #self.p_mass.append(0)
+        #self.hpd_nodes = np.array(self.hpd_nodes)
+
+        '''
+        self.vertices = np.array(self.vertices, dtype=object)
+        self.index_vert = np.array(self.index_vert)
+
+        self.index_vert = np.append(self.index_vert, [index_1, index_2, index_3], axis=0)
+        '''
+        
+    #initial estimate for getting thresholding density+
+    def getThresholdDensity(self, p):
+
+        #sort subtriangles by density; not mass, because subtriangle area may vary
+        tmp_density_array = []
+
+        for i in range(len(self.p_mass)):
+            tmp_density_array.append(self.p_mass[i] / self.getSubArea(self.triangles[i]))
+        tmp_density_array = np.array([float(x) for x in tmp_density_array])
+        p_mass_indices = np.argsort(tmp_density_array)[::-1] #get indices for largest -> smallest mass triangles
+        del tmp_density_array
+
+        #get initial estimation for threshold density from a descending sort of density
+        threshold_init = 0
+        #self.hpd_nodes = np.zeros(len(self.p_mass))
+        for i in range(len(self.p_mass)): #convert to cumulative sum
+            if(threshold_init < p):
+                #print("true")
+                threshold_init += self.p_mass[p_mass_indices[i]] #accumulate probability mass from largest to smallest
+                self.hpd_nodes[p_mass_indices[i]] = 13 #temporarily classify subtriangle as in HPD 
+                
+            else:
+                self.hpd_nodes[p_mass_indices[i]] = 0
+        print(f"Threshold init is {threshold_init}")
+
+
+        #now classify the boundary
+
+        return threshold_init
+
+    def meshRefinementTest(self, subtriangle):
+        self.quadTreeDivide(subtriangle)
+
+    '''
+    def classifyBoundary(self, t):
+        for i in range(len(self.triangles)):
+            if (self.p_mass[i] / self.getSubArea(self.triangles[i]) >= t):
+                self.hpd_nodes.append(13)
+            elif (self.p_mass[i] / self.getSubArea(self.triangles[i]) < t):
+                self.hpd_nodes.append(0)
+    '''
+
+
+    '''
     #function to get threshold density t, determines subtriangles in or out of HPD region
     def getThresholdDensity(self):
 
@@ -352,10 +618,11 @@ class Dirichlet_Distribution:
             if ((1 / area_sub) * toMpMath(self.sub_info[i][0])) > R:
                 R = toMpMath((1 / area_sub) * toMpMath(self.sub_info[i][0]))
 
-        #iterate 20 times and perform bisection each time on the list of subtriangle densities
-        for j in range(0, 20):
+       
+        #iterate until threshold density gives probability mass within tolerance of desired p
+        g = 0
+        while (abs(g - p) < 1e-5):
             M = toMpMath((L + R) / 2)
-            g = 0
 
             #use midpoint M and calculate proportion of probability mass with subtriangles with densities above M
             for l in range(len(self.sub_info)):
@@ -603,7 +870,7 @@ class Dirichlet_Distribution:
             k = int(self.res**(1/3)) #number of triangles to perform tanh-sinh on as a function of resolution
             mass_order = np.argsort(sv.T[1])[-k:][::-1] #sort by subtriangle PDF variance, take the k highest
         #elif self.iterator == 1:...
-
+'''
 
 
 
