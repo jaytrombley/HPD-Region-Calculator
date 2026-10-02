@@ -30,7 +30,7 @@ def main():
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
     resolution = 51
-    resolution_ts = mp.mpf('0.1')
+    resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
     dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas, p)
@@ -154,7 +154,8 @@ class Dirichlet_Distribution:
     ts_bounds = [t_extrema, s_min, s_max]
 
     #stores subtriangle and its variance in an array for determining which triangles to use tah-sinh on.
-    subtriangle_variance = []
+    #subtriangle_variance = []
+    amr_visual = []
 
     #iterator check: 0=first pass, 1=second pass, 2=3rd pass. This is for if we decide to do a subtriangle division after one 'pass', or pdf calculation across the domain.
     iterator = 0
@@ -263,13 +264,29 @@ class Dirichlet_Distribution:
                     x, y = bc2xy(self.vertices[self.triangles[i][j]])
                     x_tri.append(x)
                     y_tri.append(y)
-            plt.plot(x_tri, y_tri, 'r.')
+                if (self.amr_visual[i] < 10) and (self.amr_visual[i] > 7):
+                    plt.plot(x_tri, y_tri, color = 'maroon', marker = '.')
+                elif (self.amr_visual[i] < 7) and (self.amr_visual[i] > 4):
+                    plt.plot(x_tri, y_tri, color = 'red', marker = '.')
+                elif (self.amr_visual[i] < 4) and (self.amr_visual[i] >0):
+                    plt.plot(x_tri, y_tri, color = 'orange', marker = '.')
+                elif (self.amr_visual[i] == 0):
+                    plt.plot(x_tri, y_tri, color = 'yellow', marker = '.')
         #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
         plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
 
     def getTanhSinhComparison(self):
-        i = np.argmax(self.p_mass)
-        print(f"subtriangle {self.triangles[i]} has p mass {self.p_mass[i]}")
+        k = 3
+        mass_order = np.argsort(self.p_mass)[-k:][::-1]
+        tmp_mass = [self.p_mass[mass_order[0]], self.p_mass[mass_order[1]], self.p_mass[mass_order[2]]]
+
+        ts1 = self.tanhSinhIntegral(self.triangles[mass_order[0]])
+        ts2 = self.tanhSinhIntegral(self.triangles[mass_order[1]])
+        ts3 = self.tanhSinhIntegral(self.triangles[mass_order[2]])
+        ts = [ts1, ts2, ts3]
+
+        for i in range(3):
+            print(f"highest mass GQ: {tmp_mass[i]} vs the TS mass: {ts[i]}")
         
 
     #function for obtaining subtriangle area; used in the event AMR is employed and subtriangles are not uniform area
@@ -342,35 +359,6 @@ class Dirichlet_Distribution:
 
         print("\ncalculating probability masses...\n")
         #for each subtriangle in the domain, calculate the probability mass it contains
-        '''
-        for i in range(len(self.triangles)):
-
-            #if this is NOT the first pass, check for any divided subtriangles from AMR
-            if(self.iterator == 1):
-                if(self.subdivided[i] == True) or (self.subdivided[i] == 1): #set parent subtriangle properties to zero
-                    self.p_mass[i] = 0
-                    self.hpd_nodes[i] = 0
-                    continue
-                elif(self.subdivided[i] == False) or (self.subdivided[i] == 0):# and (i >= 1521):
-                    sub_mass = toMpMath(self.gaussQuadSub(self.triangles[i]))
-                    self.p_mass[i] = sub_mass
-                    self.hpd_nodes[i] = 0 #nodes in HPD will come later
-                else:
-                    continue
-            
-
-            #if this is the first pass, fill out p_mass, hpd_nodes, subdivided
-            elif(self.iterator == 0):
-                sub_mass = toMpMath(self.gaussQuadSub(self.triangles[i]))
-                self.p_mass.append(sub_mass)
-                self.hpd_nodes.append(0) #will be calculated after boundary classification
-                self.subdivided.append(False)
-
-            #accumulate the probability mass now
-            total_mass += self.p_mass[i]
-            if i % 5000 == 0:
-                print(f"{i}/{len(self.triangles)} subtriangle masses computed")
-        '''
         if(self.iterator == 1):
             for i in range(self.length_record, len(self.triangles)):
                 if(self.subdivided[i] == True) or (self.subdivided[i] == 1): #set parent subtriangle properties to zero
@@ -381,6 +369,7 @@ class Dirichlet_Distribution:
                     sub_mass = toMpMath(self.gaussQuadSub(self.triangles[i]))
                     self.p_mass[i] = sub_mass
                     self.hpd_nodes[i] = 0 #nodes in HPD will come later
+                    self.amr_visual[i] += 1
                 else:
                     continue
 
@@ -395,6 +384,7 @@ class Dirichlet_Distribution:
                 self.p_mass.append(sub_mass)
                 self.hpd_nodes.append(0) #will be calculated after boundary classification
                 self.subdivided.append(False)
+                self.amr_visual.append(0)
 
             #accumulate the probability mass now
                 self.total_mass += self.p_mass[i]
@@ -418,10 +408,10 @@ class Dirichlet_Distribution:
         
         print(f"HPD Area for params {self.alphas} is {hpd_area}")
 
-        if((self.alphas[0] < 0.9) or (self.alphas[1] < 0.9) or (self.alphas[2] < 0.9)): #or if total domain mass is < 0.99
+        if((self.alphas[0] < 1) or (self.alphas[1] < 1) or (self.alphas[2] < 1)): #or if total domain mass is < 0.99
             self.iterator = 1
             division_counts = 0
-            while (self.total_mass < 0.99): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
+            while (self.total_mass < 0.995) and (division_counts < 10): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
                 self.singularitySubDivide()
                 self.integrateWithGQ()
                 t = self.getThresholdDensity(0.95)
@@ -461,14 +451,14 @@ class Dirichlet_Distribution:
 
             max_var = maxpdf - minpdf
 
-            if max_var > 1e1:
-                ts_candidate = True
+            if (max_var > 1e1):
+                ts_candidate = 1
             elif max_var < 1e1:
-                ts_candidate = False
+                ts_candidate = 0
 
             return ts_candidate
         else:
-            return False
+            return 0
 
     #function to calculate area of HPD using info contained in self.hpd_nodes
     def sumHPDTriangles(self):
@@ -489,15 +479,16 @@ class Dirichlet_Distribution:
         #iterate through subtriangles, calculate variance, divide if variance exceeds threshold
         for i in range(len(self.triangles)):
             ts = self.varianceCalculate(self.triangles[i])
-            if ((ts == True) and (self.subdivided[i] == 0)):
+            if ((ts == 1) and (self.subdivided[i] == 0)):
                 self.quadTreeDivide(self.triangles[i])
                 self.subdivided[i] = True
                 self.p_mass[i] = 0
                 self.hpd_nodes[i] = 0
+                self.amr_visual[i] = -1
                 divide_counts +=1 #for counting number of triangles divided
-            elif((ts == True) and (self.subdivided[i] == 1)):
+            elif((ts == 1) and (self.subdivided[i] == 1)):
                 continue
-            elif ts == False:
+            elif ts == 0:
                 self.total_mass += self.p_mass[i] #get partial p-mass for accumulation later via integrate with GQ function
                 self.subdivided[i] = False
                 continue
@@ -508,6 +499,7 @@ class Dirichlet_Distribution:
         self.p_mass = np.concatenate((self.p_mass, p_mass_append), dtype = object)
         self.hpd_nodes = np.concatenate((self.hpd_nodes, p_mass_append))
         self.subdivided = np.concatenate((self.subdivided, p_mass_append))
+        self.amr_visual = np.concatenate((self.amr_visual, p_mass_append))
 
 
     #subdivide triangles with singular borders
@@ -635,7 +627,7 @@ class Dirichlet_Distribution:
             sum_term = calcSumTerm(t, 'u')
             #print(f"sum term for t is {sum_term}")
 
-            if (sum_term < 1e-16) and (k > 0):
+            if (sum_term < 1e-30) and (k > 0):
                 #print(f"for t={t}, sumterm is {sum_term}")
                 break
             elif (sum_term == inf) and (k > 0):
