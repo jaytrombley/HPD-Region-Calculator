@@ -24,18 +24,20 @@ mp.mp.dps = 35
 def main():
 
     #alpha params for dirichlet distribution here
-    alpha1 = 7
-    alpha2 = 3
-    alpha3 = 0.4
+    alpha1 = 9
+    alpha2 = 7
+    alpha3 = 0.7
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 201
-    resolution_ts = mp.mpf('0.001')
+    resolution = 51
+    resolution_ts = mp.mpf('0.1')
     p = mp.mpf('0.95')
 
     dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas, p)
     dirichlet_object.plotSimplex()
+    dirichlet_object.testTSBounds()
     dirichlet_object.calcHPDArea()
+    
     dirichlet_object.plotHPDRegion()
 
 
@@ -246,8 +248,9 @@ class Dirichlet_Distribution:
         o = f"Resolution: n={self.res}"
         plt.figtext(0.375, 0.075, o)
 
-        #plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
-        plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
+        #plt.show()
+        plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
+        #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
 
     def plotHPDRegion(self):
         self.plotSimplex()
@@ -260,8 +263,8 @@ class Dirichlet_Distribution:
                     x_tri.append(x)
                     y_tri.append(y)
             plt.plot(x_tri, y_tri, 'r.')
-        plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
-        #plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
+        #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
+        plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
         
 
     #function for obtaining subtriangle area; used in the event AMR is employed and subtriangles are not uniform area
@@ -568,7 +571,7 @@ class Dirichlet_Distribution:
 
         #get initial estimation for threshold density from a descending sort of density
         threshold_init = 0
-        threshold_real = 0
+
         #self.hpd_nodes = np.zeros(len(self.p_mass))
         for i in range(len(self.p_mass)): #convert to cumulative sum
             if(threshold_init < p):
@@ -580,190 +583,16 @@ class Dirichlet_Distribution:
                 
             else:
                 self.hpd_nodes[p_mass_indices[i]] = 0
-        #print(f"Threshold init is {threshold_real}")
+
         return threshold_init
-    '''
-#iterate until threshold density gives probability mass within tolerance of desired p
-        g = 0
-        R = self.p_mass[p_mass_indices[0]] / self.getSubArea(self.triangles[p_mass_indices[0]])
-        L = toMpMath(threshold_real - 1)
-        M = 0
 
-        while (abs(g - p) > 1e-1):
-            g = 0
-            M = toMpMath((L + R) / 2)
-
-            #use midpoint M and calculate proportion of probability mass with subtriangles with densities above M
-            for l in range(len(self.triangles)):
-                if(self.subdivided[p_mass_indices[l]] == True):
-                    continue
-                area_sub = self.getSubArea(self.triangles[p_mass_indices[l]])
-                if(((1 / area_sub) * toMpMath(self.p_mass[p_mass_indices[l]])) > M): #if subtriangle rep. density > M...
-                    g += toMpMath(self.p_mass[p_mass_indices[l]]) #...accumulate the probability mass of the subtriangle
-
-            #if the proportion of the probability mass g is greater than our target p, M too inclusive
-            #M needs to be larger, take the new lower bound L to be the current M
-            if(g > p):
-                L = toMpMath(M)
-
-            #if the proportion g is less than p, then M is too exclusive
-            #M needs to be smaller, take new upper bound R to be the current M, bisect again
-            elif(g < p):
-                R = toMpMath(M)
-            #print(abs(g-p))
-
-        print(f"Threshold density is {M}")
-        return M
-        #now classify the boundary
-    '''
         
 
     def meshRefinementTest(self, subtriangle):
         self.quadTreeDivide(subtriangle)
 
     '''
-    def classifyBoundary(self, t):
-        for i in range(len(self.triangles)):
-            if (self.p_mass[i] / self.getSubArea(self.triangles[i]) >= t):
-                self.hpd_nodes.append(13)
-            elif (self.p_mass[i] / self.getSubArea(self.triangles[i]) < t):
-                self.hpd_nodes.append(0)
-    '''
-
-
-    '''
-    #function to get threshold density t, determines subtriangles in or out of HPD region
-    def getThresholdDensity(self):
-
-        #bisection parameters
-        M = 0
-        R = 0
-        L = 0
-
-        #first, make sure subtriangle list is filled out
-        self.integrateWithGQ()
-
-        #if there exist parameters less than 1, we will need tanh-sinh integration
-        if((self.alphas[0] < 1) or (self.alphas[1] < 1) or (self.alphas[2] < 1)):
-            self.callTanhSinh()
-
-        #find subtriangle with largest representative density and take this density as the upper bound R
-        for i in range(len(self.sub_info)):
-
-            #if subtriangle is divided from AMR, skip:
-            if self.sub_info[i][3] == True:
-                continue
-
-            area_sub = self.getSubArea(self.sub_info[i][1])
-
-            #if the iterated subtriangle has a density greater than the current R, make it the new R
-            if ((1 / area_sub) * toMpMath(self.sub_info[i][0])) > R:
-                R = toMpMath((1 / area_sub) * toMpMath(self.sub_info[i][0]))
-
-       
-        #iterate until threshold density gives probability mass within tolerance of desired p
-        g = 0
-        while (abs(g - p) < 1e-5):
-            M = toMpMath((L + R) / 2)
-
-            #use midpoint M and calculate proportion of probability mass with subtriangles with densities above M
-            for l in range(len(self.sub_info)):
-                if(self.sub_info[i][3] == True):
-                    continue
-                area_sub = self.getSubArea(self.sub_info[i][1])
-                if(((1 / area_sub) * toMpMath(self.sub_info[l][0])) > M): #if subtriangle rep. density > M...
-                    g += toMpMath(self.sub_info[l][0]) #...accumulate the probability mass of the subtriangle
-
-            #if the proportion of the probability mass g is greater than our target p, M too inclusive
-            #M needs to be larger, take the new lower bound L to be the current M
-            if(g > self.p):
-                L = toMpMath(M)
-
-            #if the proportion g is less than p, then M is too exclusive
-            #M needs to be smaller, take new upper bound R to be the current M, bisect again
-            elif(g < self.p):
-                R = toMpMath(M)
-
-            if(j % 5 == 0):
-                print(f"{j}/{20} bisections performed")
-
-        return M
-            
-    #function to classify boundary of HPD region
-    def classifyBoundary(self):
-        t = toMpMath(self.getThresholdDensity())
-        print(f"\nboundary threshold density = {t}")
-        print(f"classifying boundary...")
-
-        #iterate through sub info list
-        for i in range(len(self.sub_info)):
-            node_threshold_count = 0
-            if(self.sub_info[i][3] == True): #if the subtriangle is marked as divided via AMR
-                continue
-
-            ###### THE CODE HERE IS FOR WHAT TO DO IF WE ENCOUNTER A TANH-SINH TRIANGLE ######
-            #####  
-            elif(self.sub_info[i][2] == -1): #if the subtriangle mass was calculated with tanh-sinh...
-                if((1/self.getSubArea(self.sub_info[i][1]) * self.sub_info[i][0]) > t): #pass if mass above t
-                    continue
-                elif((1/self.getSubArea(self.sub_info[i][1]) * self.sub_info[i][0]) < t): #treat as outside HPD otherwise
-                    self.sub_info[i][2] = 0
-                    continue
-            #####
-
-            ###### HERE WE CONSIDER ONLY GAUSSIAN SUBTRIANGLES #####
-            #####
-            sub_nodes = self.gaussQuadNodes(self.sub_info[i][1]) #get Gaussian nodes for subtriangle
-            for j in range(len(sub_nodes)): #for each node in the subtriangle...
-                f_dirichlet = toMpMath(dirichletpdf(sub_nodes[j][0], self.alphas)) #calculate Dirichlet pdf at subtriangle node
-                if f_dirichlet > t: #if the Dirichlet pdf at the node > t, count it
-                    node_threshold_count += 1
-            self.sub_info[i][2] = node_threshold_count #denote number of nodes in subtriangle with PDF values above t
-            if(i % 5000 == 0):
-                print(f"{i}/{len(self.sub_info)} subtriangles classified")
-
-    #function to calculate the area of the HPD region
-    def calcHPDArea(self):
-
-        ###### FRACTIONAL SUBTRIANGLES - SUM NORMALIZED WEIGHTS OF NODES ABOVE THRESHOLD INSTEAD OF i/13 ######
-
-        areaHPD = 0
-        massHPD = 0
-
-        #update sub_info
-        self.classifyBoundary()
-        print("calculating HPD area...")
-
-        for i in range(len(self.sub_info)):
-            if(self.sub_info[i][3] == True): #if it is a subdivided subtriangle from AMR, skip
-                continue
-            elif(self.sub_info[i][2] == -1): # if the subtriangle is a tanh-sinh subtriangle within the HPD region
-                areaHPD += self.getSubArea(self.sub_info[i][1])
-                massHPD += toMpMath(self.sub_info[i][0])
-            elif(self.sub_info[i][2] < 0) and (self.sub_info[i][2] != -1): #if the subtriangle is a boundary tanh-sinh...
-                print("semi-tanh-sinh detected")
-                #will return to work on this
-                continue
-            elif(self.sub_info[i][2] == 13): #if the subtriangle is a GQ subtriangle with all nodes inside HPD region
-                areaHPD += self.getSubArea(self.sub_info[i][1])
-                massHPD += toMpMath(self.sub_info[i][0])
-            #update this calculation with the method suggested at the top of this function
-            elif((self.sub_info[i][2] < 13) and (self.sub_info[i][2] > 0)): #if the subtriangle is GQ with partial nodes in HPD region
-                areaHPD += toMpMath(self.sub_info[i][2] / 13) * self.getSubArea(self.sub_info[i][1])
-                massHPD += toMpMath(self.sub_info[i][2] / 13) * toMpMath(self.sub_info[i][0])
-            elif(self.sub_info[i][2] == 0): #if the subtriangle is excluded from the HPD region, skip
-                continue
-            
-            #length of sub info may not be a good indicator if AMR is to be implemented extensively,
-            if(i%5000 == 0):
-                print(f"{i}/{len(self.sub_info)} of the simplex area calculated")
-
-        print("\n***********************************************")
-        print(f"*** for parameters {self.alphas}, HPD area is {areaHPD} with a probability mass of {massHPD}")
-        print("*************************************************")
-        return areaHPD
-
-    #function to calculate the u, v bounds on which tanh-sinh integration is to be performed
+        #function to calculate the u, v bounds on which tanh-sinh integration is to be performed
     def getTanhSinhDomainBounds(self, subtriangle):
         alt_ref = mp.mpf('0.9931285991850950') #constant; if integrating in u, constant v, and vice versa
         alt_0 = toMpMath('0.5') * (alt_ref + 1) #shift from [-1, 1] to [0, 1]
@@ -796,11 +625,15 @@ class Dirichlet_Distribution:
                 var = 'u'
             else:
                 var = 'v'
+
+            j = 0
             while True:
+                j += 1
                 bounds[i] = self.ts_bounds[i] + (k * self.res_ts) #increment by k*h
                 sum_term = calcSumTerm(bounds[i], var) #calculate TS function at the bound
-
-                if (sum_term < 1e-40) and (k > 0): #if bound within threshold, take it as the true bound
+                if (j % 500 == 0):
+                    print(sum_term)
+                if (sum_term < 1e-8) and (k > 0): #if bound within threshold, take it as the true bound
                     break
                 elif(((sum_term == inf) and (k > 0)) or (mp.isnan(sum_term) == True)): #if bound is nan or inf, back up one h, take it as true bound
                     bounds[i] -= self.res_ts
@@ -812,107 +645,132 @@ class Dirichlet_Distribution:
                         k += 1
         
         return [[-bounds[0], bounds[0]], [bounds[1], bounds[2]]]
+    '''
+     #get bounds of integration for the singular subtriangle as a range [u0, u1]x[v0, v1]
+    def genTanhSinhMeshUVBound(self, subtriangle):
+        #alpha = [toMpMath(k) for k in alpha]
+        #h = toMpMath(h)
+        #v_ref = mp.mpf('0.2277858511416451') #one of the GQ nodes for a 20-pt rule
+        v_ref = mp.mpf('0.9931285991850950')
+        v_0 = toMpMath(0.5) * (v_ref + 1)
+        #w_v = 0.5 * 0.1491729864726042
+        #w_v = 0.5 * 0.0176140071391509
+        k = 0
+        t_ub = toMpMath(self.t_extrema)
+        s_lb = toMpMath(self.s_min)
+        s_ub = toMpMath(self.s_max)
+
+        #calculates the summation term for truncation by magnitude for u or v, holding the other constant
+        def calcSumTerm(t, uv_var):
+            
+            uv = mp.mpf('0.5') * mp.tanh((mp.pi / 2) * mp.sinh(t)) + mp.mpf('0.5')
+
+            if(uv_var == 'u'):
+                f = toMpMath(dirichletpdf(self.localBCfromUV(subtriangle, uv, v_0), self.alphas))
+                u_jac = uv
+            elif(uv_var == 'v'):
+                #print(f"PROBLEM AREA-----{self.localBCfromUV(subtriangle, v_0, uv, orientation)}")
+                f = toMpMath(dirichletpdf(self.localBCfromUV(subtriangle, v_0, uv), self.alphas))
+                u_jac = v_0
+            else:
+                print("wrong u or v variable")
+                quit()
+            w_k = (mp.pi / 4) * (mp.cosh(t) / ((mp.cosh((mp.pi/2) * mp.sinh(t)))**2))
+            #print(f"f is {f}, w_k is {w_k}, local bc is {self.localBCfromUV(subtriangle, u, v_0, 2)}")
+            return f * w_k * self.res_ts**2 * (1 - u_jac) * 2 * self.getSubArea(subtriangle)#self.area * (toMpMath(1 / (self.res - 1)))**2# * w_v
+
+        #for u to 1
+        while True:
+            t = t_ub + (k * self.res_ts)
+            sum_term = calcSumTerm(t, 'u')
+            #print(f"sum term for t is {sum_term}")
+
+            if (sum_term < 1e-16) and (k > 0):
+                #print(f"for t={t}, sumterm is {sum_term}")
+                break
+            elif (sum_term == inf) and (k > 0):
+                #print(f"for t={t}, sumterm is {sum_term}")
+                t -= self.res_ts
+                #print(f"for new t={t} with h={h}...sum term is {calcSumTerm(t, 'u', orientation)}")
+                break
+            elif (mp.isnan(sum_term) == True):
+                #print(f"for t={t}, sumterm is {sum_term}")
+                t -= self.res_ts
+                #print(f"for new t={t} with h={h}...sum term is {calcSumTerm(t, 'u', orientation)}")
+                break
+            #elif (sum_term == inf) and (k == 0):
+            #    print("error: t bound started at inf")
+            #    quit()
+            else:
+                k += 1
+
+        #for v to 0
+        k=0
+        while True:
+            s_0 = s_lb - (k * self.res_ts)
+            sum_term = calcSumTerm(s_0, 'v')
+
+            if (sum_term < 1e-40) and (k > 0):
+                break
+            elif(sum_term == inf) and (k > 0):
+                #print(f"for s_0={s_0}, sumterm is {sum_term}")
+                s_0 += self.res_ts
+                #print(f"for new s_0={s_0}, sumertm is {calcSumTerm(s_0, 'v', orientation)}")
+                break
+            elif (mp.isnan(sum_term) == True):
+                #print(f"for s0={s_0}, sumterm is {sum_term}")
+                s_0 -= self.res_ts
+                #print(f"for new s0={s_0} with h={h}...sum term is {calcSumTerm(s_0, 'u', orientation)}")
+                break
+            #elif (sum_term == inf) and (k == 0):
+             #   print("error: t bound started at inf")
+            #    quit()
+            else:
+                k +=1
+
+        #for v to 1
+        k=0
+        while True:
+            s_1 = s_ub + (k * self.res_ts)
+            sum_term = calcSumTerm(s_1, 'v')
+
+            if (sum_term < 1e-40) and (k > 0):
+                #print(f"for t={t}, sumterm is {sum_term}")
+                break
+            elif (sum_term == inf) and (k > 0):
+                #print(f"for s_1={s_1}, sumterm is {sum_term}")
+                s_1 -= self.res_ts
+                #print(f"for new s_1={s_1} with h={h}...sum term is {calcSumTerm(s_1, 'v', orientation)}")
+                break
+            elif (mp.isnan(sum_term) == True):
+                #print(f"for s1={s_1}, sumterm is {sum_term}")
+                s_1 -= self.res_ts
+                #print(f"for new s1={s_1} with h={h}...sum term is {calcSumTerm(s_1, 'u', orientation)}")
+                break
+            #elif (sum_term == inf) and (k == 0):
+            #    print("error: t bound started at inf")
+            #    quit()
+            else:
+                k += 1
+
+        return [[-t, t], [s_0, s_1]]
+
+
+    def testTSBounds(self):
+        print(self.genTanhSinhMeshUVBound(self.triangles[0]))
+    
 
     #function for calculating subtriangle barycentric coordinates from U, V coordinates
     #add orientation functionality, which exists in experiment branch
     def localBCfromUV(self, subtriangle, u, v):
         u = toMpMath(u)
-        v = toMpmath(v)
+        v = toMpMath(v)
         lambdas = uv2bc(u, v)
 
         coords = self.localBCfromRefBC(subtriangle, lambdas)
         return coords
 
-    #function to integrate a subtriangle with tanh-sinh quadrature
-    def tanhSinhSub(self, subtriangle, orientation=None):
-        bds = getTanhSinhDomainBounds(subtriangle)
-
-        #define refined lower bound for the u=g(t) interval (g(t_refined), bds[0][1])
-        gt_refined = toMpMath(bds[0][1] - mp.mpf('0.1'))
-
-        #define refined bounds for the interval v=g(s), (bds[1][0], g(s_refined_lower)) and (g(s_refined_upper), bds[1][1])
-        gs_refined_lower = toMpMath(bds[1][0] + mp.mpf('0.1'))
-        gs_refined_upper = toMpMath(bds[1][1] - mp.mpf('0.1'))
-
-        #constant to equal the spacing for the non-refined intervals given by [bds[0][0], g(t_refined)] subset of [bds[0][0], bds[0][1]] for u
-            #and the interval [g(s_refined_lower), g(s_refined_upper)] subset of [bds[1][0], bds[1][1]] for v
-        h_1 = mp.mpf('0.1')
-
-        #define refined interval step sizes
-        t_refined_step = int((bds[0][1] - gt_refined)/self.res_ts)
-        s_refined_step = int((bds[1][1] - gs_refined_upper)/self.res_ts)
-
-        #define coarse intervals step sizes
-        t_coarse_step = int((gt_refined - bds[0][0])/h_1)
-        s_coarse_step = int((gs_refined_upper - gs_refined_lower)/h_1)
-
-        #define interval of coarse integration using step size h_1; k is for u, l is for v
-        k_coarse = mp.linspace(mp.mpf(bds[0][0]), gt_refined, t_coarse_step, endpoint=False)
-        l_coarse = mp.linspace(gs_refined_lower, gs_refined_upper, s_coarse_step, endpoint=False)
-
-        #define interval of fine integration with the step size passed in as ts resolution argument
-        k_refined = mp.arange(gt_refined, bds[0][1], self.res_ts)
-        k_refined.append(mp.mpf(bds[0][1]))
-
-        l_refined_lower = mp.arange(mp.mpf(bds[1][0]), gs_refined_lower, self.res_ts)
-        l_refined_upper = mp.arange(gs_refined_upper, bds[1][1], self.res_ts)
-        l_refined_upper.append(mp.mpf(bds[1][1]))
-
-        #concatenate the intervals to get the integration domain of the tanh-sinh function
-        k = k_coarse + k_refined
-        l = l_refined_lower + l_coarse + l_refined_upper
-
-        #from the domain kxl, get the image of the tanh-sinh function in u, v terms
-        u_k = [mp.mpf('0.5') * mp.tanh((mp.pi/2) * mp.sinh(t)) for t in k]
-        v_l = [mp.mpf('0.5') * mp.tanh((mp.pi/2) * mp.sinh(s)) for s in l]
-
-        summation = 0
-
-        #for every point (u_i, v_j) in the unit square, calculate PDF, weight, jacobian, area by tanh-sinh function
-        for i in range(len(v_l)):
-            for j in range(len(u_k)):
-                g_t = (mp.pi/4) * (mp.cosh(k[j]) / ((mp.cosh((mp.pi/2) * mp.sinh(k[j])))**2))
-                g_s = (mp.pi/4) * (mp.cosh(l[i]) / ((mp.cosh((mp.pi/2) * mp.sinh(l[i])))**2))
-                weights = g_t * g_s
-                jacobian = toMpMath(1 - u_k[j])
-
-                #now need to calculate interval length of integration in v
-                if((i==0) or (i==(len(v_l)-1))):
-                    h_v = self.res_ts
-                else:
-                    h_v = (l[i+1] - l[i-1])/2
-
-                #now calculate interval length of integration in u
-                if(j==0):
-                    h_u = h_1
-                elif(j==(len(u_k)-1)):
-                    h_u = self.res_ts
-                else:
-                    h_u = (k[j+1] - k[j-1])/2
-
-                #now calculate value of tanh-sinh integral at the u_i, v_j
-                value = dirichletpdf(self.localBCfromUV(subtriangle, u_k[j], v_l[i]), alpha) * weights * jacobian * h_u * h_v
-                summation += value
-
-            if(i%100==0):
-                print(f"{i}/{len(v_l)-1} points in u=[0,1] computed")
-
-            #calculate the probability mass of the subtriangle by multiplying it by triangular jacobian transform
-            pdf_integral = summation * 2 * self.getSubArea(subtriangle)
-
-            return pdf_integral
-        
-
-    #function to call tanh-sinh quadrature in the event a parameter <1
-    def callTanhSinh(self):
-        sv = np.array(self.subtriangle_variance, dtype = object) #subtriangle variances
-
-        #if this is the first integration of the domain
-        if self.iterator == 0:
-            k = int(self.res**(1/3)) #number of triangles to perform tanh-sinh on as a function of resolution
-            mass_order = np.argsort(sv.T[1])[-k:][::-1] #sort by subtriangle PDF variance, take the k highest
-        #elif self.iterator == 1:...
-'''
+    
 
 
 
