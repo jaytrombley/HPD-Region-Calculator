@@ -24,9 +24,9 @@ mp.mp.dps = 35
 def main():
 
     #alpha params for dirichlet distribution here
-    alpha1 = 9
-    alpha2 = 7
-    alpha3 = 0.7
+    alpha1 = 0.5
+    alpha2 = 0.5
+    alpha3 = 9
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
     resolution = 51
@@ -37,6 +37,7 @@ def main():
     dirichlet_object.plotSimplex()
     dirichlet_object.testTSBounds()
     dirichlet_object.calcHPDArea()
+    dirichlet_object.getTanhSinhComparison()
     
     dirichlet_object.plotHPDRegion()
 
@@ -265,6 +266,10 @@ class Dirichlet_Distribution:
             plt.plot(x_tri, y_tri, 'r.')
         #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
         plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
+
+    def getTanhSinhComparison(self):
+        i = np.argmax(self.p_mass)
+        print(f"subtriangle {self.triangles[i]} has p mass {self.p_mass[i]}")
         
 
     #function for obtaining subtriangle area; used in the event AMR is employed and subtriangles are not uniform area
@@ -587,65 +592,10 @@ class Dirichlet_Distribution:
         return threshold_init
 
         
-
     def meshRefinementTest(self, subtriangle):
         self.quadTreeDivide(subtriangle)
 
-    '''
-        #function to calculate the u, v bounds on which tanh-sinh integration is to be performed
-    def getTanhSinhDomainBounds(self, subtriangle):
-        alt_ref = mp.mpf('0.9931285991850950') #constant; if integrating in u, constant v, and vice versa
-        alt_0 = toMpMath('0.5') * (alt_ref + 1) #shift from [-1, 1] to [0, 1]
-        b1 = 0
-        b2 = 0
-        b3 = 0
-        bounds = [b1, b2, b3] #bounds for the tanh-sinh domain
 
-        #basically calculates the whole tanh sinh function given a specific node in the subtriangle
-        def calcSumTerm(t, uv_var):
-            uv = mp.mpf('0.5') * mp.tanh((mp.pi / 2) * mp.sinh(t)) + mp.mpf('0.5') #tanh sinh function here
-
-            #if we are integrating in the u direction:
-            if(uv_var == 'u'):
-                f = toMpMath(dirichletpdf(self.localBCfromUV(subtriangle, uv, alt_0), self.alphas))
-                u_jacobian = uv #the jacobian (1-u) will change if v is constant
-            elif(uv_var == 'v'):
-                f = toMpMath(dirichletpdf(self.localBCfromUV(subtriangle, alt_0, uv), self.alphas))
-                u_jacobian = alt_0 #the jacobian 1-u is constant because u is constant
-            else:
-                print("variable not u or v")
-                quit()
-            w_k = (mp.pi / 4) * (mp.cosh(t) / ((mp.cosh((mp.pi/2) * mp.sinh(t)))**2)) #tanh-sinh weight, the deriv of the tanh sinh function
-            return f * w_k * self.res_ts**2 * (1 - u_jacobian) * 2 * self.getSubArea(subtriangle)
-
-        #for u->1, v->0, v->1
-        for i in range(len(self.ts_bounds)):
-            k = 0
-            if(i==0):
-                var = 'u'
-            else:
-                var = 'v'
-
-            j = 0
-            while True:
-                j += 1
-                bounds[i] = self.ts_bounds[i] + (k * self.res_ts) #increment by k*h
-                sum_term = calcSumTerm(bounds[i], var) #calculate TS function at the bound
-                if (j % 500 == 0):
-                    print(sum_term)
-                if (sum_term < 1e-8) and (k > 0): #if bound within threshold, take it as the true bound
-                    break
-                elif(((sum_term == inf) and (k > 0)) or (mp.isnan(sum_term) == True)): #if bound is nan or inf, back up one h, take it as true bound
-                    bounds[i] -= self.res_ts
-                    break
-                else: #if we can push bound further, do so by incrementing
-                    if(i==1):
-                        k -= 1
-                    else:
-                        k += 1
-        
-        return [[-bounds[0], bounds[0]], [bounds[1], bounds[2]]]
-    '''
      #get bounds of integration for the singular subtriangle as a range [u0, u1]x[v0, v1]
     def genTanhSinhMeshUVBound(self, subtriangle):
         #alpha = [toMpMath(k) for k in alpha]
@@ -755,10 +705,88 @@ class Dirichlet_Distribution:
 
         return [[-t, t], [s_0, s_1]]
 
+     #function for integrating the singular subtriangle using tanh-sinh quadrature
+    def tanhSinhIntegral(self, subtriangle):
+
+        #define bounds
+        st_bound = self.genTanhSinhMeshUVBound(subtriangle)
+        t_bound = [toMpMath(a) for a in st_bound[0]]
+        s_bound = [toMpMath(b) for b in st_bound[1]]
+        t_ub_refined = toMpMath(t_bound[1] - mp.mpf('0.1'))#
+        s_ub_refined = toMpMath(s_bound[1] - mp.mpf('0.1'))#
+        s_lb_refined = toMpMath(s_bound[0] + mp.mpf('0.1'))
+        h_1 = mp.mpf('0.1') #for the middle intervals [0+epsilon, 1-epsilon]
+
+        #print(f"The domain interval for method 2 is [{t_bound[0], t_bound[1]}] x [{s_bound[0], s_bound[1]}]")
+
+        #define interval step sizes
+        t_step = int((t_bound[1]-t_ub_refined)/self.res_ts)
+        s_step = int((s_bound[1]-s_ub_refined)/self.res_ts)
+        s_coarse = int((s_ub_refined - s_lb_refined)/h_1)
+        t_coarse = int((t_ub_refined - t_bound[0])/h_1)
+###### ATTEMPT AT INCORPORATING SUBSUBTRIANGLE PROPERTIES INTO SUBTRIANGLE LISTS
+        #define interval of coarse integration via step size h_1
+        k_coarse = mp.linspace(mp.mpf(t_bound[0]), t_ub_refined, t_coarse, endpoint=False)
+        l_coarse = mp.linspace(s_lb_refined, s_ub_refined, s_coarse, endpoint=False)
+
+        #define intervals of fine integration via h
+        k_refined = mp.arange(t_ub_refined, t_bound[1], self.res_ts)
+        l_refined_lower = mp.arange(mp.mpf(s_bound[0]), s_lb_refined, self.res_ts)
+        l_refined_upper = mp.arange(s_ub_refined, mp.mpf(s_bound[1]), self.res_ts)
+        k_refined.append(t_bound[1])
+        l_refined_upper.append(mp.mpf(s_bound[1]))
+
+        #concatenate intervals to get domain of tanh-sinh function
+        k = k_coarse + k_refined
+        l = l_refined_lower + l_coarse + l_refined_upper
+
+        #range of tanh sinh function calculated below; domain of integration of Dirichlet PDF
+        v_l = [0.5 * mp.tanh((mp.pi / 2) * mp.sinh(t)) + 0.5 for t in l]
+        u_k = [0.5 * mp.tanh((mp.pi / 2) * mp.sinh(t)) + 0.5 for t in k]
+
+        summation = 0
+
+        #for every point (u_i, v_j), calculate the PDF, weight, jacobian, and area given by tanh-sinh
+        for i in range(len(v_l)):
+            for j in range(len(u_k)):
+                g_t = (mp.pi / 4) * (mp.cosh(k[j]) / ((mp.cosh((mp.pi/2) * mp.sinh(k[j])))**2))
+                g_s = (mp.pi / 4) * (mp.cosh(l[i]) / ((mp.cosh((mp.pi/2) * mp.sinh(l[i])))**2))
+                weights = g_t * g_s
+                jacobian = toMpMath(1 - u_k[j])
+
+                if((i==0) or (i==(len(v_l)-1))):
+                    h_v = self.res_ts
+                else:
+                    h_v = (l[i+1] - l[i-1])/2
+
+                if(j==0):
+                    h_u = h_1
+                elif(j==(len(u_k)-1)):
+                    h_u = self.res_ts
+                else:
+                    h_u = (k[j+1]-k[j-1])/2
+
+                value = dirichletpdf(self.localBCfromUV(subtriangle, u_k[j], v_l[i]), self.alphas) * weights * jacobian * h_u * h_v
+                summation += value
+            if(i%100==0):
+                print(f"{i}/{len(v_l)-1} quadrature columns computed")
+        pdf_integral = summation * 2 * self.getSubArea(subtriangle)#area * (1 / (self.res - 1))**2
+        self.mass += pdf_integral
+        print(f"Tanh-sinh yields {pdf_integral} for subtriangle {subtriangle}")
+        plt.figure(1)
+        x_list = []
+        y_list = []
+            
+        for i in range(len(subtriangle)):
+            x, y = bc2xy(self.vertices[subtriangle[i]])
+            x_list.append(x)
+            y_list.append(y)
+        plt.plot(x_list, y_list, 'r.')
+        return pdf_integral
 
     def testTSBounds(self):
-        print(self.genTanhSinhMeshUVBound(self.triangles[0]))
-    
+        return(self.tanhSinhIntegral(self.triangles[0]))
+
 
     #function for calculating subtriangle barycentric coordinates from U, V coordinates
     #add orientation functionality, which exists in experiment branch
