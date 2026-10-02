@@ -24,12 +24,12 @@ mp.mp.dps = 35
 def main():
 
     #alpha params for dirichlet distribution here
-    alpha1 = 0.5
-    alpha2 = 0.5
+    alpha1 = 5
+    alpha2 = 0.6
     alpha3 = 9
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 51
+    resolution = 11
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
@@ -411,11 +411,16 @@ class Dirichlet_Distribution:
         if((self.alphas[0] < 1) or (self.alphas[1] < 1) or (self.alphas[2] < 1)): #or if total domain mass is < 0.99
             self.iterator = 1
             division_counts = 0
-            while (self.total_mass < 0.995) and (division_counts < 10): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
+            while (self.total_mass < 0.995) and (division_counts <= 5): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
                 self.singularitySubDivide()
                 self.integrateWithGQ()
                 t = self.getThresholdDensity(0.95)
                 hpd_area = self.sumHPDTriangles()
+                if(division_counts == 2):
+                    self.integrateWithTS()
+                    t = self.getThresholdDensity(0.95)
+                    hpd_area = self.sumHPDTriangles()
+                    break
                             
                 print(f"HPD Area for params {self.alphas} is {hpd_area} for iteration {division_counts + 2}")
                 division_counts += 1
@@ -471,6 +476,7 @@ class Dirichlet_Distribution:
 
         return hpd_area
 
+    #scheme for subdividing subtriangles based on internal variance calculations
     def singularitySubDivide(self): 
         divide_counts = 0
 
@@ -775,6 +781,29 @@ class Dirichlet_Distribution:
             y_list.append(y)
         plt.plot(x_list, y_list, 'r.')
         return pdf_integral
+
+    def integrateWithTS(self):
+        print("computing final probability masses...")
+        self.total_mass = 0
+        ts_triangles_calc = 0
+        for i in range(len(self.triangles)):
+            ts = self.varianceCalculate(self.triangles[i])
+            if(ts == 1) and (self.subdivided[i] == 0):
+                self.p_mass[i] = self.tanhSinhIntegral(self.triangles[i])
+                self.hpd_nodes[i] = 13
+                self.total_mass += self.p_mass[i]
+                ts_triangles_calc += 1
+            elif(ts == 1) and (self.subdivided[i] == 1):
+                self.hpd_nodes[i] = 0
+                continue
+            elif(ts == 0):
+                self.total_mass += self.p_mass[i]
+                self.hpd_nodes[i] = 13
+                self.subdivided[i] = False
+            if i % 5000 == 0:
+                print(f"{i}/{len(self.triangles)} subtriangle masses computed")
+                print(f"{ts_triangles_calc} subtriangles calculated with tanh-sinh integration")
+        print(f"total domain mass via tanh-sinh/GQ quad is {self.total_mass}")
 
     def testTSBounds(self):
         return(self.tanhSinhIntegral(self.triangles[0]))
