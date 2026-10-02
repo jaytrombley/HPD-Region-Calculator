@@ -1,5 +1,6 @@
 # libraries here
 
+import sys
 from math import *
 from math import factorial
 from mpmath import gamma as gm
@@ -24,9 +25,9 @@ mp.mp.dps = 35
 def main():
 
     #alpha params for dirichlet distribution here
-    alpha1 = 5
-    alpha2 = 0.6
-    alpha3 = 9
+    alpha1 = sys.argv[1]
+    alpha2 = sys.argv[2]
+    alpha3 = sys.argv[3]
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
     resolution = 11
@@ -37,7 +38,7 @@ def main():
     dirichlet_object.plotSimplex()
     dirichlet_object.testTSBounds()
     dirichlet_object.calcHPDArea()
-    dirichlet_object.getTanhSinhComparison()
+    #dirichlet_object.getTanhSinhComparison()
     
     dirichlet_object.plotHPDRegion()
 
@@ -160,6 +161,7 @@ class Dirichlet_Distribution:
     #iterator check: 0=first pass, 1=second pass, 2=3rd pass. This is for if we decide to do a subtriangle division after one 'pass', or pdf calculation across the domain.
     iterator = 0
     length_record = 0 #value for keeping track of already-computed subtriangles
+    ts_counts = 0 #number of subtriangles to be tanh-sinh quadrature
 
     #constructor
     def __init__(self, a, h, params, p):
@@ -251,7 +253,7 @@ class Dirichlet_Distribution:
         plt.figtext(0.375, 0.075, o)
 
         #plt.show()
-        plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
+        #plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
         #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
 
     def plotHPDRegion(self):
@@ -273,7 +275,7 @@ class Dirichlet_Distribution:
                 elif (self.amr_visual[i] == 0):
                     plt.plot(x_tri, y_tri, color = 'yellow', marker = '.')
         #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
-        plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
+        #plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
 
     def getTanhSinhComparison(self):
         k = 3
@@ -360,6 +362,7 @@ class Dirichlet_Distribution:
         print("\ncalculating probability masses...\n")
         #for each subtriangle in the domain, calculate the probability mass it contains
         if(self.iterator == 1):
+            print(f"len self record is {self.length_record} and triangle length is {len(self.triangles)}")
             for i in range(self.length_record, len(self.triangles)):
                 if(self.subdivided[i] == True) or (self.subdivided[i] == 1): #set parent subtriangle properties to zero
                     self.p_mass[i] = 0
@@ -370,6 +373,7 @@ class Dirichlet_Distribution:
                     self.p_mass[i] = sub_mass
                     self.hpd_nodes[i] = 0 #nodes in HPD will come later
                     self.amr_visual[i] += 1
+                    print(f"the sub mass for this newly divided subtriangle {self.triangles[i]} is {sub_mass}")
                 else:
                     continue
 
@@ -416,10 +420,8 @@ class Dirichlet_Distribution:
                 self.integrateWithGQ()
                 t = self.getThresholdDensity(0.95)
                 hpd_area = self.sumHPDTriangles()
-                if(division_counts == 2):
-                    self.integrateWithTS()
-                    t = self.getThresholdDensity(0.95)
-                    hpd_area = self.sumHPDTriangles()
+                if(self.length_record == len(self.triangles)):
+                    print(f"all subtriangles have variance constrained for quadrature.")
                     break
                             
                 print(f"HPD Area for params {self.alphas} is {hpd_area} for iteration {division_counts + 2}")
@@ -456,8 +458,10 @@ class Dirichlet_Distribution:
 
             max_var = maxpdf - minpdf
 
-            if (max_var > 1e1):
+            if (max_var > 1e3):
                 ts_candidate = 1
+            elif(max_var > 1e1) and (max_var < 1e3):
+                ts_candidate = 2
             elif max_var < 1e1:
                 ts_candidate = 0
 
@@ -479,7 +483,7 @@ class Dirichlet_Distribution:
     #scheme for subdividing subtriangles based on internal variance calculations
     def singularitySubDivide(self): 
         divide_counts = 0
-
+        self.ts_counts = 0
         self.length_record = len(self.triangles) #record number of subtriangles now
         self.total_mass = 0 #set total mass to zero for recalculation later
         #iterate through subtriangles, calculate variance, divide if variance exceeds threshold
@@ -494,10 +498,19 @@ class Dirichlet_Distribution:
                 divide_counts +=1 #for counting number of triangles divided
             elif((ts == 1) and (self.subdivided[i] == 1)):
                 continue
+            elif ts == 2:
+                self.p_mass[i] = self.tanhSinhIntegral(self.triangles[i])
+                self.total_mass += self.p_mass[i]
+                self.subdivided[i] = False
+                self.ts_counts += 1
             elif ts == 0:
                 self.total_mass += self.p_mass[i] #get partial p-mass for accumulation later via integrate with GQ function
                 self.subdivided[i] = False
                 continue
+            if(i % 25 == 0):
+                print(f"{self.ts_counts} triangles calculated with tanh-sinh out of {self.length_record} total triangles")
+        print(self.ts_counts)
+        print(f"pre-GQ total mass is {self.total_mass}")
             
 
         #need to allocate more values to subtriangle property arrays
@@ -766,11 +779,11 @@ class Dirichlet_Distribution:
 
                 value = dirichletpdf(self.localBCfromUV(subtriangle, u_k[j], v_l[i]), self.alphas) * weights * jacobian * h_u * h_v
                 summation += value
-            if(i%100==0):
-                print(f"{i}/{len(v_l)-1} quadrature columns computed")
+            #if(i%100==0):
+                #print(f"{i}/{len(v_l)-1} quadrature columns computed")
         pdf_integral = summation * 2 * self.getSubArea(subtriangle)#area * (1 / (self.res - 1))**2
         self.mass += pdf_integral
-        print(f"Tanh-sinh yields {pdf_integral} for subtriangle {subtriangle}")
+        #print(f"Tanh-sinh yields {pdf_integral} for subtriangle {subtriangle}")
         plt.figure(1)
         x_list = []
         y_list = []
