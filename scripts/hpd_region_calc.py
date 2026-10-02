@@ -30,7 +30,7 @@ def main():
     alpha3 = sys.argv[3]
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 11
+    resolution = 21
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
@@ -420,11 +420,12 @@ class Dirichlet_Distribution:
                 self.integrateWithGQ()
                 t = self.getThresholdDensity(0.95)
                 hpd_area = self.sumHPDTriangles()
+                
+                            
+                print(f"HPD Area for params {self.alphas} is {hpd_area} for iteration {division_counts + 2}")
                 if(self.length_record == len(self.triangles)):
                     print(f"all subtriangles have variance constrained for quadrature.")
                     break
-                            
-                print(f"HPD Area for params {self.alphas} is {hpd_area} for iteration {division_counts + 2}")
                 division_counts += 1
 
         print(f"the process took {division_counts} levels of subdivision")
@@ -483,7 +484,6 @@ class Dirichlet_Distribution:
     #scheme for subdividing subtriangles based on internal variance calculations
     def singularitySubDivide(self): 
         divide_counts = 0
-        self.ts_counts = 0
         self.length_record = len(self.triangles) #record number of subtriangles now
         self.total_mass = 0 #set total mass to zero for recalculation later
         #iterate through subtriangles, calculate variance, divide if variance exceeds threshold
@@ -503,14 +503,12 @@ class Dirichlet_Distribution:
                 self.total_mass += self.p_mass[i]
                 self.subdivided[i] = False
                 self.ts_counts += 1
+                print(f"subtriangle {self.triangles[i]} ")
             elif ts == 0:
                 self.total_mass += self.p_mass[i] #get partial p-mass for accumulation later via integrate with GQ function
                 self.subdivided[i] = False
                 continue
-            if(i % 25 == 0):
-                print(f"{self.ts_counts} triangles calculated with tanh-sinh out of {self.length_record} total triangles")
-        print(self.ts_counts)
-        print(f"pre-GQ total mass is {self.total_mass}")
+        print(f"pre-GQ total mass is {self.total_mass}, with {self.ts_counts} subtriangles calc via TS")
             
 
         #need to allocate more values to subtriangle property arrays
