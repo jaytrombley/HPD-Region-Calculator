@@ -266,11 +266,14 @@ class Dirichlet_Distribution:
                     x, y = bc2xy(self.vertices[self.triangles[i][j]])
                     x_tri.append(x)
                     y_tri.append(y)
+                    if (j == 2):
+                        x_tri.append(x_tri[0])
+                        y_tri.append(y_tri[0])
                 if (self.amr_visual[i] < 10) and (self.amr_visual[i] > 7):
                     plt.plot(x_tri, y_tri, color = 'maroon', marker = '.')
-                elif (self.amr_visual[i] < 7) and (self.amr_visual[i] > 4):
+                elif (self.amr_visual[i] < 7) and (self.amr_visual[i] > 2):
                     plt.plot(x_tri, y_tri, color = 'red', marker = '.')
-                elif (self.amr_visual[i] < 4) and (self.amr_visual[i] >0):
+                elif (self.amr_visual[i] < 2) and (self.amr_visual[i] >0):
                     plt.plot(x_tri, y_tri, color = 'orange', marker = '.')
                 elif (self.amr_visual[i] == 0):
                     plt.plot(x_tri, y_tri, color = 'yellow', marker = '.')
@@ -298,6 +301,13 @@ class Dirichlet_Distribution:
 
         sidelength = mp.sqrt((x_1 - x_0)**2 + (y_1-y_0)**2)
         return self.area * sidelength**2
+
+    def getSubHeight(self, subtriangle):
+        x_1, y_1 = bc2xy(self.vertices[subtriangle[1]])
+        x_0, y_0 = bc2xy(self.vertices[subtriangle[0]])
+
+        sidelength = mp.sqrt((x_1 - x_0)**2 + (y_1-y_0)**2)
+        return mp.sqrt(sidelength**2 - (sidelength/2)**2)
 
     #function for getting the local (within a subtriangle) barycentric coordinates given the parent BC triangle coords
     def localBCfromRefBC(self,subtriangle, bc):
@@ -441,7 +451,7 @@ class Dirichlet_Distribution:
         on_border = False
 
         for i in range(3):
-            if (self.vertices[subtriangle[i]][0] < 1e-15) or (self.vertices[subtriangle[i]][1] < 1e-15) or (self.vertices[subtriangle[i]][2] < 1e-15):
+            if ((self.vertices[subtriangle[i]][0] < 1e-15) and (self.alphas[0] < 1)) or (self.vertices[subtriangle[i]][1] < 1e-15 and (self.alphas[1] < 1)) or (self.vertices[subtriangle[i]][2] < 1e-15 and (self.alphas[2] < 1)):
                 on_border = True
             else:
                 continue
@@ -463,9 +473,10 @@ class Dirichlet_Distribution:
 
             max_var = maxpdf - minpdf
 
-            if (max_var > 1e1):
+            # if the arguments are set to zero, then all boundary subtriangles will be subdivided.
+            if (max_var > 0):
                 ts_candidate = 1
-            elif max_var < 1e1:
+            elif max_var <= 0:
                 ts_candidate = 0
             #elif(max_var > 1e1) and (max_var < 1e3):
             #    ts_candidate = 2
