@@ -30,7 +30,7 @@ def main():
     alpha3 = sys.argv[3]
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 21
+    resolution = 11
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
@@ -274,7 +274,7 @@ class Dirichlet_Distribution:
                     plt.plot(x_tri, y_tri, color = 'orange', marker = '.')
                 elif (self.amr_visual[i] == 0):
                     plt.plot(x_tri, y_tri, color = 'yellow', marker = '.')
-        #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
+        plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
         #plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
 
     def getTanhSinhComparison(self):
@@ -411,6 +411,10 @@ class Dirichlet_Distribution:
         hpd_area = self.sumHPDTriangles()
         
         print(f"HPD Area for params {self.alphas} is {hpd_area}")
+
+        ###############
+        ## Implement a pre-iterative subdivision in order to NOT have to set the resolution so high
+        ###############
 
         if((self.alphas[0] < 1) or (self.alphas[1] < 1) or (self.alphas[2] < 1)): #or if total domain mass is < 0.99
             self.iterator = 1
@@ -603,6 +607,9 @@ class Dirichlet_Distribution:
         
     def meshRefinementTest(self, subtriangle):
         self.quadTreeDivide(subtriangle)
+
+    def integrateSingularBoundary(self):
+        x = 5
 
 
      #get bounds of integration for the singular subtriangle as a range [u0, u1]x[v0, v1]
