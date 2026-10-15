@@ -463,13 +463,13 @@ class Dirichlet_Distribution:
 
             max_var = maxpdf - minpdf
 
-            if (max_var > 1e3):
+            if (max_var > 1e1):
                 ts_candidate = 1
-            elif(max_var > 1e1) and (max_var < 1e3):
-                ts_candidate = 2
             elif max_var < 1e1:
                 ts_candidate = 0
-
+            #elif(max_var > 1e1) and (max_var < 1e3):
+            #    ts_candidate = 2
+            
             return ts_candidate
         else:
             return 0
