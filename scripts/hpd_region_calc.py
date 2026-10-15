@@ -502,16 +502,19 @@ class Dirichlet_Distribution:
                 divide_counts +=1 #for counting number of triangles divided
             elif((ts == 1) and (self.subdivided[i] == 1)):
                 continue
+            elif ts == 0:
+                self.total_mass += self.p_mass[i] #get partial p-mass for accumulation later via integrate with GQ function
+                self.subdivided[i] = False
+                continue
+            #uncheck below for tanh-sinh
+            '''
             elif ts == 2:
                 self.p_mass[i] = self.tanhSinhIntegral(self.triangles[i])
                 self.total_mass += self.p_mass[i]
                 self.subdivided[i] = False
                 self.ts_counts += 1
                 print(f"subtriangle {self.triangles[i]} ")
-            elif ts == 0:
-                self.total_mass += self.p_mass[i] #get partial p-mass for accumulation later via integrate with GQ function
-                self.subdivided[i] = False
-                continue
+            '''
         print(f"pre-GQ total mass is {self.total_mass}, with {self.ts_counts} subtriangles calc via TS")
             
 
