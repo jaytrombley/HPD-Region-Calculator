@@ -38,7 +38,6 @@ def main():
     dirichlet_object.plotSimplex()
     dirichlet_object.testTSBounds()
     dirichlet_object.calcHPDArea()
-    #dirichlet_object.getTanhSinhComparison()
     
     dirichlet_object.plotHPDRegion()
 
@@ -269,30 +268,17 @@ class Dirichlet_Distribution:
                     if (j == 2):
                         x_tri.append(x_tri[0])
                         y_tri.append(y_tri[0])
-                if (self.amr_visual[i] < 10) and (self.amr_visual[i] > 7):
+                if (self.amr_visual[i] <= 10) and (self.amr_visual[i] > 7):
                     plt.plot(x_tri, y_tri, color = 'maroon', marker = '.')
-                elif (self.amr_visual[i] < 7) and (self.amr_visual[i] > 2):
+                elif (self.amr_visual[i] <= 7) and (self.amr_visual[i] > 2):
                     plt.plot(x_tri, y_tri, color = 'red', marker = '.')
-                elif (self.amr_visual[i] < 2) and (self.amr_visual[i] >0):
+                elif (self.amr_visual[i] <= 2) and (self.amr_visual[i] >0):
                     plt.plot(x_tri, y_tri, color = 'orange', marker = '.')
                 elif (self.amr_visual[i] == 0):
                     plt.plot(x_tri, y_tri, color = 'yellow', marker = '.')
-        plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
+        #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
         #plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
-
-    def getTanhSinhComparison(self):
-        k = 3
-        mass_order = np.argsort(self.p_mass)[-k:][::-1]
-        tmp_mass = [self.p_mass[mass_order[0]], self.p_mass[mass_order[1]], self.p_mass[mass_order[2]]]
-
-        ts1 = self.tanhSinhIntegral(self.triangles[mass_order[0]])
-        ts2 = self.tanhSinhIntegral(self.triangles[mass_order[1]])
-        ts3 = self.tanhSinhIntegral(self.triangles[mass_order[2]])
-        ts = [ts1, ts2, ts3]
-
-        for i in range(3):
-            print(f"highest mass GQ: {tmp_mass[i]} vs the TS mass: {ts[i]}")
-        
+        plt.show()     
 
     #function for obtaining subtriangle area; used in the event AMR is employed and subtriangles are not uniform area
     def getSubArea(self, subtriangle):
@@ -302,6 +288,7 @@ class Dirichlet_Distribution:
         sidelength = mp.sqrt((x_1 - x_0)**2 + (y_1-y_0)**2)
         return self.area * sidelength**2
 
+    #function for returning subtriangle height
     def getSubHeight(self, subtriangle):
         x_1, y_1 = bc2xy(self.vertices[subtriangle[1]])
         x_0, y_0 = bc2xy(self.vertices[subtriangle[0]])
@@ -371,7 +358,7 @@ class Dirichlet_Distribution:
 
         print("\ncalculating probability masses...\n")
         #for each subtriangle in the domain, calculate the probability mass it contains
-        if(self.iterator == 1):
+        if(self.iterator >= 1):
             print(f"len self record is {self.length_record} and triangle length is {len(self.triangles)}")
             for i in range(self.length_record, len(self.triangles)):
                 if(self.subdivided[i] == True) or (self.subdivided[i] == 1): #set parent subtriangle properties to zero
@@ -382,8 +369,7 @@ class Dirichlet_Distribution:
                     sub_mass = toMpMath(self.gaussQuadSub(self.triangles[i]))
                     self.p_mass[i] = sub_mass
                     self.hpd_nodes[i] = 0 #nodes in HPD will come later
-                    self.amr_visual[i] += 1
-                    print(f"the sub mass for this newly divided subtriangle {self.triangles[i]} is {sub_mass}")
+                    self.amr_visual[i] = self.iterator
                 else:
                     continue
 
@@ -441,7 +427,9 @@ class Dirichlet_Distribution:
                     print(f"all subtriangles have variance constrained for quadrature.")
                     break
                 division_counts += 1
+                self.iterator += 1
 
+        print(f"the strip integral provides {self.integrateSingularBoundary()} for a delta of {self.getSubHeight(self.triangles[-1])}")
         print(f"the process took {division_counts} levels of subdivision")
         #self.iterator = 1
 
@@ -618,13 +606,31 @@ class Dirichlet_Distribution:
 
         return threshold_init
 
-        
-    def meshRefinementTest(self, subtriangle):
-        self.quadTreeDivide(subtriangle)
-
     def integrateSingularBoundary(self):
-        x = 5
+        delta = self.getSubHeight(self.triangles[-1])
+        singular_borders = []
+        nonsingular_borders = []
+        nonsingular_integral = 0
+        singular_integral = 0
 
+        if(min(self.alphas) > 1):
+            print(f"the params {self.alphas} are not singular. Quitting.")
+            quit()
+
+        for i in range(len(self.alphas)):
+            if self.alphas[i] < 1:
+                singular_borders.append(i)
+            else:
+                nonsingular_borders.append(i)
+
+        if(len(singular_borders) == 1):
+            beta_one = gm(self.alphas[nonsingular_borders[0]]) * gm(self.alphas[nonsingular_borders[1]]) / gm(self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]])
+            beta_dirichlet = gm(self.alphas[0]) * gm(self.alphas[1]) * gm(self.alphas[2]) / gm(self.alphas[0] + self.alphas[1] + self.alphas[2])
+            nonsingular_integral = beta_one / beta_dirichlet
+
+            singular_integral = ((delta)**self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]
+
+        return nonsingular_integral * singular_integral
 
      #get bounds of integration for the singular subtriangle as a range [u0, u1]x[v0, v1]
     def genTanhSinhMeshUVBound(self, subtriangle):
