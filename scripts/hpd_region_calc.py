@@ -30,7 +30,7 @@ def main():
     alpha3 = sys.argv[3]
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 11
+    resolution = 21
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
@@ -356,7 +356,7 @@ class Dirichlet_Distribution:
     def integrateWithGQ(self): #potentially make this function only recalculate subdivided triangles for degenerate cases
         #total_mass = self.total_mass #should equal 1 at the end
 
-        print("\ncalculating probability masses...\n")
+        print(f"\ncalculating probability masses...\n")
         #for each subtriangle in the domain, calculate the probability mass it contains
         if(self.iterator >= 1):
             print(f"len self record is {self.length_record} and triangle length is {len(self.triangles)}")
@@ -377,6 +377,24 @@ class Dirichlet_Distribution:
                 self.total_mass += self.p_mass[i]
                 if i % 5000 == 0:
                     print(f"{i}/{len(self.triangles)} subtriangle masses computed")
+
+        elif(self.iterator == -1):
+            self.total_mass = 0
+            num_tris = 0
+            for i in range(len(self.triangles)):
+                if(self.subdivided[i] == True) or (self.subdivided[i]):
+                    self.p_mass[i] = 0
+                    self.hpd_nodes[i] = 0
+                    continue
+                elif(self.subdivided[i] == False) or (self.subdivided[i] == 0):
+                    sub_mass = toMpMath(self.gaussQuadSub(self.triangles[i]))
+                    self.p_mass[i] = sub_mass
+                    self.hpd_nodes[i] = 0 #nodes in HPD will come later
+                    num_tris += 1
+                self.total_mass += self.p_mass[i]
+                if i % 5000 == 0:
+                    print(f"{i}/{len(self.triangles)} subtriangle masses computed")
+            print(f"{num_tris} out of {len(self.triangles)} computed")
 
         elif(self.iterator == 0):
             for i in range(len(self.triangles)):
@@ -428,8 +446,10 @@ class Dirichlet_Distribution:
                     break
                 division_counts += 1
                 self.iterator += 1
+            self.integrateSingularBoundary()
 
-        print(f"the strip integral provides {self.integrateSingularBoundary()} for a delta of {self.getSubHeight(self.triangles[-1])}")
+        print(f"the strip integral provides {self.getSingularStripMass()} for a delta of {self.getSubHeight(self.triangles[-1])}")
+        
         print(f"the process took {division_counts} levels of subdivision")
         #self.iterator = 1
 
@@ -483,6 +503,15 @@ class Dirichlet_Distribution:
                 continue
 
         return hpd_area
+
+    def checkBorder(self, subtriangle):
+        onBorder = False
+        for i in range(3):
+            if((self.vertices[subtriangle[i]][0] < 1e-15) or (self.vertices[subtriangle[i]][1] < 1e-15) or (self.vertices[subtriangle[i]][2] < 1e-15)):
+                onBorder = True
+        return onBorder
+
+        
 
     #scheme for subdividing subtriangles based on internal variance calculations
     def singularitySubDivide(self): 
@@ -606,7 +635,29 @@ class Dirichlet_Distribution:
 
         return threshold_init
 
+
     def integrateSingularBoundary(self):
+        self.iterator = -1
+        delta = self.getSubHeight(self.triangles[-1])
+        tmp_mass = 0
+        alt_mass = 0
+        for i in range(len(self.triangles)):
+            if ((abs(self.getSubHeight(self.triangles[i]) - delta) < 1e-15)) and (self.checkBorder(self.triangles[i]) == True): #or (self.subdivided[i] == True):
+                self.subdivided[i] = True
+                tmp_mass += self.p_mass[i]
+                print(f"subtriangle {self.triangles[i]} with p mass {self.p_mass[i]} is in the strip, with delta = {self.getSubHeight(self.triangles[i])}")
+                continue
+                #print(f"subtriangle {self.triangles[i]} is cancelled out")
+            elif(self.subdivided[i] == False):
+                alt_mass += self.p_mass[i]
+        #self.total_mass = 0
+        print(f"strip mass with GQ is is {tmp_mass}, mass of all but strip with gq is {alt_mass}")
+        self.integrateWithGQ()
+        self.total_mass += self.getSingularStripMass()
+        print(f"the total mass with strip integration is {self.total_mass}")
+
+
+    def getSingularStripMass(self):
         delta = self.getSubHeight(self.triangles[-1])
         singular_borders = []
         nonsingular_borders = []
