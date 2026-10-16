@@ -456,7 +456,7 @@ class Dirichlet_Distribution:
 
 
     #determine variance in near-edge PDF from centroid PDF for all three vertices.
-    def varianceCalculate(self, subtriangle):
+    def varianceCalculate(self, subtriangle, var_threshold):
         on_border = False
 
         for i in range(3):
@@ -483,9 +483,9 @@ class Dirichlet_Distribution:
             max_var = maxpdf - minpdf
 
             # if the arguments are set to zero, then all boundary subtriangles will be subdivided.
-            if (max_var > 0):
+            if (max_var > var_threshold):
                 ts_candidate = 1
-            elif max_var <= 0:
+            elif max_var <= var_threshold:
                 ts_candidate = 0
             #elif(max_var > 1e1) and (max_var < 1e3):
             #    ts_candidate = 2
