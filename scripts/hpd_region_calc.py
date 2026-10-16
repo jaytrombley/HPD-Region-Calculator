@@ -30,7 +30,7 @@ def main():
     alpha3 = sys.argv[3]
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 21
+    resolution = 11
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
@@ -115,6 +115,7 @@ class Dirichlet_Distribution:
     p_mass = [] #store probability mass by index of each subtriangle
     hpd_nodes = [] #store number of nodes contained within the HPD region
     subdivided = [] #store T/F on whether the subtriangle is divided via AMR
+    boundary = [] #stores whether a triangle 
 
     #distribution parameters
     alphas = [0, 0, 0]
@@ -433,7 +434,7 @@ class Dirichlet_Distribution:
         if((self.alphas[0] < 1) or (self.alphas[1] < 1) or (self.alphas[2] < 1)): #or if total domain mass is < 0.99
             self.iterator = 1
             division_counts = 0
-            while (self.total_mass < 0.995) and (division_counts <= 5): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
+            while (self.total_mass < 0.999) and (division_counts <= 2): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
                 self.singularitySubDivide()
                 self.integrateWithGQ()
                 t = self.getThresholdDensity(0.95)
@@ -641,18 +642,32 @@ class Dirichlet_Distribution:
         delta = self.getSubHeight(self.triangles[-1])
         tmp_mass = 0
         alt_mass = 0
+        self.total_mass = 0
         for i in range(len(self.triangles)):
             if ((abs(self.getSubHeight(self.triangles[i]) - delta) < 1e-15)) and (self.checkBorder(self.triangles[i]) == True): #or (self.subdivided[i] == True):
                 self.subdivided[i] = True
+                self.p_mass[i] = 0
+                self.hpd_nodes[i] = 13
                 tmp_mass += self.p_mass[i]
-                print(f"subtriangle {self.triangles[i]} with p mass {self.p_mass[i]} is in the strip, with delta = {self.getSubHeight(self.triangles[i])}")
+                #print(f"subtriangle {self.triangles[i]} with p mass {self.p_mass[i]} is in the strip, with delta = {self.getSubHeight(self.triangles[i])}")
                 continue
                 #print(f"subtriangle {self.triangles[i]} is cancelled out")
-            elif(self.subdivided[i] == False):
+            elif(self.subdivided[i] == False) and (i >= self.res**2):
+                self.p_mass[i] = self.tanhSinhIntegral(self.triangles[i])
                 alt_mass += self.p_mass[i]
+                self.total_mass += alt_mass
+                continue
+            elif(self.subdivided[i] == False) and (i < self.res**2):
+                alt_mass += self.p_mass[i]
+                self.total_mass += alt_mass
+                continue
+            if i % 20 == 0:
+                print(f"{i}/{len(self.triangles)} triangles computed")
         #self.total_mass = 0
         print(f"strip mass with GQ is is {tmp_mass}, mass of all but strip with gq is {alt_mass}")
-        self.integrateWithGQ()
+        #self.integrateWithGQ()
+        #self.integrateWithTS(True)
+        #for i in range(len(self.p_mass))
         self.total_mass += self.getSingularStripMass()
         print(f"the total mass with strip integration is {self.total_mass}")
 
@@ -871,27 +886,44 @@ class Dirichlet_Distribution:
         plt.plot(x_list, y_list, 'r.')
         return pdf_integral
 
-    def integrateWithTS(self):
+    '''
+    def integrateBoundaryWithTS(self):
+        boundary_init_index = self.res**2
+        for i in range(len(self.triangles)):
+            if(self.subdivided[i] == True):
+                continue
+    '''
+
+    def integrateWithTS(self, boundary):
+        boundary = False
         print("computing final probability masses...")
         self.total_mass = 0
         ts_triangles_calc = 0
-        for i in range(len(self.triangles)):
-            ts = self.varianceCalculate(self.triangles[i])
-            if(ts == 1) and (self.subdivided[i] == 0):
-                self.p_mass[i] = self.tanhSinhIntegral(self.triangles[i])
-                self.hpd_nodes[i] = 13
-                self.total_mass += self.p_mass[i]
-                ts_triangles_calc += 1
-            elif(ts == 1) and (self.subdivided[i] == 1):
-                self.hpd_nodes[i] = 0
-                continue
-            elif(ts == 0):
-                self.total_mass += self.p_mass[i]
-                self.hpd_nodes[i] = 13
-                self.subdivided[i] = False
-            if i % 5000 == 0:
-                print(f"{i}/{len(self.triangles)} subtriangle masses computed")
-                print(f"{ts_triangles_calc} subtriangles calculated with tanh-sinh integration")
+        if boundary == False:
+            for i in range(len(self.triangles)):
+                ts = self.varianceCalculate(self.triangles[i])
+                if(ts == 1) and (self.subdivided[i] == 0):
+                    self.p_mass[i] = self.tanhSinhIntegral(self.triangles[i])
+                    self.hpd_nodes[i] = 13
+                    self.total_mass += self.p_mass[i]
+                    ts_triangles_calc += 1
+                elif(ts == 1) and (self.subdivided[i] == 1):
+                    self.hpd_nodes[i] = 0
+                    continue
+                elif(ts == 0):
+                    self.total_mass += self.p_mass[i]
+                    self.hpd_nodes[i] = 13
+                    self.subdivided[i] = False
+                if i % 5000 == 0:
+                    print(f"{i}/{len(self.triangles)} subtriangle masses computed")
+                    print(f"{ts_triangles_calc} subtriangles calculated with tanh-sinh integration")
+        elif boundary == True:
+            for i in range(self.res**2, len(self.triangles)):
+                if(self.subdivided[i] == True) or (self.subdivided[i] == 1):
+                    continue
+                elif(self.subdivided[i] == False) or (self.subdivided[i] == 0):
+                    self.p_mass[i] = self.tanhSinhIntegral(self.triangles[i])
+                    self.hpd_nodes[i] = 13
         print(f"total domain mass via tanh-sinh/GQ quad is {self.total_mass}")
 
     def testTSBounds(self):
