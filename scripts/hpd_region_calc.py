@@ -441,7 +441,7 @@ class Dirichlet_Distribution:
         if((self.alphas[0] < 1) or (self.alphas[1] < 1) or (self.alphas[2] < 1)): #or if total domain mass is < 0.99
             self.iterator = 1
             division_counts = 0
-            while (self.total_mass < 0.999) and (division_counts <= 6): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
+            while (self.total_mass < 0.999) and (division_counts <= 4): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
                 self.singularitySubDivide()
                 self.integrateWithGQ()
                 t = self.getThresholdDensity(0.95)
@@ -692,6 +692,7 @@ class Dirichlet_Distribution:
         nonsingular_borders = []
         nonsingular_integral = 0
         singular_integral = 0
+        
 
         if(min(self.alphas) > 1):
             print(f"the params {self.alphas} are not singular. Quitting.")
@@ -703,14 +704,20 @@ class Dirichlet_Distribution:
             else:
                 nonsingular_borders.append(i)
 
+        #calculate the analytical inner integral; B(beta_i, beta_k)/B(beta_i, beta_j, beta_k) and the singular integral delta^beta_j/beta_j
         if(len(singular_borders) == 1):
             beta_one = gm(self.alphas[nonsingular_borders[0]]) * gm(self.alphas[nonsingular_borders[1]]) / gm(self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]])
             beta_dirichlet = gm(self.alphas[0]) * gm(self.alphas[1]) * gm(self.alphas[2]) / gm(self.alphas[0] + self.alphas[1] + self.alphas[2])
             nonsingular_integral = beta_one / beta_dirichlet
 
             singular_integral = ((delta)**self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]
+            abs_err = (self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]] - 1) * (delta**(self.alphas[singular_borders[0]]+1)) / (self.alphas[singular_borders[0]]+1)
 
-        return nonsingular_integral * singular_integral
+        crude_integral = nonsingular_integral * singular_integral
+        error_integral = nonsingular_integral * (singular_integral - abs_err)
+        #print(f"the crude is {crude_integral}, the error integral is {error_integral}, the abs err is {abs_err}")
+
+        return error_integral
 
      #get bounds of integration for the singular subtriangle as a range [u0, u1]x[v0, v1]
     def genTanhSinhMeshUVBound(self, subtriangle):
