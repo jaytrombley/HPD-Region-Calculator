@@ -279,7 +279,7 @@ class Dirichlet_Distribution:
                     plt.plot(x_tri, y_tri, color = 'yellow', marker = '.')
         #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
         #plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
-        plt.show()     
+        #plt.show()     
 
     #function for obtaining subtriangle area; used in the event AMR is employed and subtriangles are not uniform area
     def getSubArea(self, subtriangle):
@@ -296,6 +296,13 @@ class Dirichlet_Distribution:
 
         sidelength = mp.sqrt((x_1 - x_0)**2 + (y_1-y_0)**2)
         return mp.sqrt(sidelength**2 - (sidelength/2)**2)
+
+    def getSidelength(self, subtriangle):
+        x_1, y_1 = bc2xy(self.vertices[subtriangle[1]])
+        x_0, y_0 = bc2xy(self.vertices[subtriangle[0]])
+        
+        sidelength = mp.sqrt((x_1 - x_0)**2 + (y_1-y_0)**2)
+        return sidelength
 
     #function for getting the local (within a subtriangle) barycentric coordinates given the parent BC triangle coords
     def localBCfromRefBC(self,subtriangle, bc):
@@ -383,7 +390,7 @@ class Dirichlet_Distribution:
             self.total_mass = 0
             num_tris = 0
             for i in range(len(self.triangles)):
-                if(self.subdivided[i] == True) or (self.subdivided[i]):
+                if(self.subdivided[i] == True) or (self.subdivided[i] == 1):
                     self.p_mass[i] = 0
                     self.hpd_nodes[i] = 0
                     continue
@@ -434,7 +441,7 @@ class Dirichlet_Distribution:
         if((self.alphas[0] < 1) or (self.alphas[1] < 1) or (self.alphas[2] < 1)): #or if total domain mass is < 0.99
             self.iterator = 1
             division_counts = 0
-            while (self.total_mass < 0.999) and (division_counts <= 2): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
+            while (self.total_mass < 0.999) and (division_counts <= 6): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
                 self.singularitySubDivide()
                 self.integrateWithGQ()
                 t = self.getThresholdDensity(0.95)
@@ -449,7 +456,7 @@ class Dirichlet_Distribution:
                 self.iterator += 1
             self.integrateSingularBoundary()
 
-        print(f"the strip integral provides {self.getSingularStripMass()} for a delta of {self.getSubHeight(self.triangles[-1])}")
+        print(f"the strip integral provides {self.getSingularStripMass()} for a delta of {self.getSidelength(self.triangles[-1])}")
         
         print(f"the process took {division_counts} levels of subdivision")
         #self.iterator = 1
@@ -521,7 +528,7 @@ class Dirichlet_Distribution:
         self.total_mass = 0 #set total mass to zero for recalculation later
         #iterate through subtriangles, calculate variance, divide if variance exceeds threshold
         for i in range(len(self.triangles)):
-            ts = self.varianceCalculate(self.triangles[i])
+            ts = self.varianceCalculate(self.triangles[i], 0)
             if ((ts == 1) and (self.subdivided[i] == 0)):
                 self.quadTreeDivide(self.triangles[i])
                 self.subdivided[i] = True
@@ -644,36 +651,43 @@ class Dirichlet_Distribution:
         alt_mass = 0
         self.total_mass = 0
         for i in range(len(self.triangles)):
-            if ((abs(self.getSubHeight(self.triangles[i]) - delta) < 1e-15)) and (self.checkBorder(self.triangles[i]) == True): #or (self.subdivided[i] == True):
+            #if the subtriangle is on the border, remove it from consideration as the strip analytic method will be used.
+            if (((abs(self.getSubHeight(self.triangles[i]) - delta) < 1e-15)) and (self.checkBorder(self.triangles[i]) == True)) or (self.subdivided[i] == True):
                 self.subdivided[i] = True
                 self.p_mass[i] = 0
                 self.hpd_nodes[i] = 13
                 tmp_mass += self.p_mass[i]
                 #print(f"subtriangle {self.triangles[i]} with p mass {self.p_mass[i]} is in the strip, with delta = {self.getSubHeight(self.triangles[i])}")
                 continue
-                #print(f"subtriangle {self.triangles[i]} is cancelled out")
+            #else if the subtriangle is not subdivided and is in the boundary region, use tanh sinh(commented out for GQ)
+            '''
             elif(self.subdivided[i] == False) and (i >= self.res**2):
-                self.p_mass[i] = self.tanhSinhIntegral(self.triangles[i])
+                #self.p_mass[i] = self.gaussQuadSub(self.triangles[i])#self.tanhSinhIntegral(self.triangles[i])
                 alt_mass += self.p_mass[i]
                 self.total_mass += alt_mass
                 continue
+            #else if the subtrianlge is not subdivided and is not near the singularity, reuse the GQ p mass
             elif(self.subdivided[i] == False) and (i < self.res**2):
                 alt_mass += self.p_mass[i]
                 self.total_mass += alt_mass
                 continue
+            else:
+                print(f"subtriangle {self.triangles[i]} is here with p mass {self.p_mass[i]}")
             if i % 20 == 0:
                 print(f"{i}/{len(self.triangles)} triangles computed")
+            '''
         #self.total_mass = 0
         print(f"strip mass with GQ is is {tmp_mass}, mass of all but strip with gq is {alt_mass}")
-        #self.integrateWithGQ()
+        self.integrateWithGQ()
         #self.integrateWithTS(True)
         #for i in range(len(self.p_mass))
+        print(f"the total mass pre strip integration is {self.total_mass}")
         self.total_mass += self.getSingularStripMass()
         print(f"the total mass with strip integration is {self.total_mass}")
 
 
     def getSingularStripMass(self):
-        delta = self.getSubHeight(self.triangles[-1])
+        delta = self.getSidelength(self.triangles[-1])
         singular_borders = []
         nonsingular_borders = []
         nonsingular_integral = 0
