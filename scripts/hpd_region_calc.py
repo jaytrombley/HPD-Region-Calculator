@@ -441,7 +441,7 @@ class Dirichlet_Distribution:
         if((self.alphas[0] < 1) or (self.alphas[1] < 1) or (self.alphas[2] < 1)): #or if total domain mass is < 0.99
             self.iterator = 1
             division_counts = 0
-            while (self.total_mass < 0.999) and (division_counts <= 4): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
+            while (self.total_mass < 0.999) and (division_counts <= 7): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
                 self.singularitySubDivide()
                 self.integrateWithGQ()
                 t = self.getThresholdDensity(0.95)
@@ -706,12 +706,28 @@ class Dirichlet_Distribution:
 
         #calculate the analytical inner integral; B(beta_i, beta_k)/B(beta_i, beta_j, beta_k) and the singular integral delta^beta_j/beta_j
         if(len(singular_borders) == 1):
-            beta_one = gm(self.alphas[nonsingular_borders[0]]) * gm(self.alphas[nonsingular_borders[1]]) / gm(self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]])
+            #define the beta functions
+            beta_one = gm(self.alphas[nonsingular_borders[0]]) * gm(self.alphas[nonsingular_borders[1]]) / gm(self.alphas[nonsingular_borders[0]] \
+                        + self.alphas[nonsingular_borders[1]])
             beta_dirichlet = gm(self.alphas[0]) * gm(self.alphas[1]) * gm(self.alphas[2]) / gm(self.alphas[0] + self.alphas[1] + self.alphas[2])
             nonsingular_integral = beta_one / beta_dirichlet
 
+            #calculate the approximations
             singular_integral = ((delta)**self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]
             abs_err = (self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]] - 1) * (delta**(self.alphas[singular_borders[0]]+1)) / (self.alphas[singular_borders[0]]+1)
+        elif(len(singular_borders) == 2):
+            beta_one = gm(self.alphas[nonsingular_borders[0]]) * gm(self.alphas[singular_borders[0]]) / gm(self.alphas[nonsingular_borders[0]] \
+                        + self.alphas[singular_borders[0]])
+            beta_two = gm(self.alphas[nonsingular_borders[0]]) * gm(self.alphas[singular_borders[1]]) / gm(self.alphas[nonsingular_borders[0]] \
+                        + self.alphas[singular_borders[1]])
+            beta_dirichlet = gm(self.alphas[0]) * gm(self.alphas[1]) * gm(self.alphas[2]) / gm(self.alphas[0] + self.alphas[1] + self.alphas[2])
+            nonsingular_integral_two = beta_one / beta_dirichlet
+            nonsingular_integral_one = beta_two / beta_dirichlet
+
+            singular_integral_one = ((delta)**self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]
+            singular_integral_two = ((delta)**self.alphas[singular_borders[1]]) / self.alphas[singular_borders[1]]
+            integral_overlap = 1
+
 
         crude_integral = nonsingular_integral * singular_integral
         error_integral = nonsingular_integral * (singular_integral - abs_err)
