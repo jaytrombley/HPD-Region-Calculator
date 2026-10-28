@@ -441,7 +441,7 @@ class Dirichlet_Distribution:
         if((self.alphas[0] < 1) or (self.alphas[1] < 1) or (self.alphas[2] < 1)): #or if total domain mass is < 0.99
             self.iterator = 1
             division_counts = 0
-            while (self.total_mass < 0.999) and (division_counts <= 7): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
+            while (self.total_mass < 0.999) and (division_counts <= 4): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
                 self.singularitySubDivide()
                 self.integrateWithGQ()
                 t = self.getThresholdDensity(0.95)
@@ -714,7 +714,13 @@ class Dirichlet_Distribution:
 
             #calculate the approximations
             singular_integral = ((delta)**self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]
-            abs_err = (self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]] - 1) * (delta**(self.alphas[singular_borders[0]]+1)) / (self.alphas[singular_borders[0]]+1)
+            L_x = (self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]] - 1) * (delta**(self.alphas[singular_borders[0]]+1)) / (self.alphas[singular_borders[0]]+1)
+            Q_x = (self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]] - 1) * (self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]] - 2) / \
+                    (factorial(2) * (self.alphas[singular_borders[0]] + 2)) * (delta**(self.alphas[singular_borders[0]] + 2))
+            C_x = (self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]] - 1) * (self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]] - 2) * \
+                    (self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]] - 3) / (factorial(3) * (self.alphas[singular_borders[0]] + 3)) * (delta**(self.alphas[singular_borders[0]] + 3))
+            abs_err = L_x - Q_x + C_x
+
         elif(len(singular_borders) == 2):
             beta_one = gm(self.alphas[nonsingular_borders[0]]) * gm(self.alphas[singular_borders[0]]) / gm(self.alphas[nonsingular_borders[0]] \
                         + self.alphas[singular_borders[0]])
