@@ -739,7 +739,7 @@ class Dirichlet_Distribution:
             singular_integral_one = ((delta)**self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]
             singular_integral_two = ((delta)**self.alphas[singular_borders[1]]) / self.alphas[singular_borders[1]]
             integral_overlap = (delta**(self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]) \
-                        + (delta**(self.alphas[singular_borders[1]]) / self.alphas[singular_borders[1]])
+                        * (delta**(self.alphas[singular_borders[1]]) / self.alphas[singular_borders[1]])
 
             
 
