@@ -706,6 +706,9 @@ class Dirichlet_Distribution:
 
         #calculate the analytical inner integral; B(beta_i, beta_k)/B(beta_i, beta_j, beta_k) and the singular integral delta^beta_j/beta_j
         if(len(singular_borders) == 1):
+
+            #nonsingular coefficients are of the form beta_a + beta_b - c
+            ns_coeffs = self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]]
             #define the beta functions
             beta_one = gm(self.alphas[nonsingular_borders[0]]) * gm(self.alphas[nonsingular_borders[1]]) / gm(self.alphas[nonsingular_borders[0]] \
                         + self.alphas[nonsingular_borders[1]])
@@ -714,11 +717,11 @@ class Dirichlet_Distribution:
 
             #calculate the approximations
             singular_integral = ((delta)**self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]
-            L_x = (self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]] - 1) * (delta**(self.alphas[singular_borders[0]]+1)) / (self.alphas[singular_borders[0]]+1)
-            Q_x = (self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]] - 1) * (self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]] - 2) / \
+            L_x = (ns_coeffs - 1) * (delta**(self.alphas[singular_borders[0]]+1)) / (self.alphas[singular_borders[0]]+1)
+            Q_x = (ns_coeffs - 1) * (ns_coeffs - 2) / \
                     (factorial(2) * (self.alphas[singular_borders[0]] + 2)) * (delta**(self.alphas[singular_borders[0]] + 2))
-            C_x = (self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]] - 1) * (self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]] - 2) * \
-                    (self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]] - 3) / (factorial(3) * (self.alphas[singular_borders[0]] + 3)) * (delta**(self.alphas[singular_borders[0]] + 3))
+            C_x = (ns_coeffs - 1) * (ns_coeffs - 2) * \
+                    (ns_coeffs - 3) / (factorial(3) * (self.alphas[singular_borders[0]] + 3)) * (delta**(self.alphas[singular_borders[0]] + 3))
             abs_err = L_x - Q_x + C_x
 
         elif(len(singular_borders) == 2):
