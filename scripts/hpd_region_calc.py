@@ -724,6 +724,9 @@ class Dirichlet_Distribution:
                     (ns_coeffs - 3) / (factorial(3) * (self.alphas[singular_borders[0]] + 3)) * (delta**(self.alphas[singular_borders[0]] + 3))
             abs_err = L_x - Q_x + C_x
 
+            crude_integral = nonsingular_integral * singular_integral
+            error_integral = nonsingular_integral * (singular_integral - abs_err)
+
         elif(len(singular_borders) == 2):
             beta_one = gm(self.alphas[nonsingular_borders[0]]) * gm(self.alphas[singular_borders[0]]) / gm(self.alphas[nonsingular_borders[0]] \
                         + self.alphas[singular_borders[0]])
@@ -735,11 +738,13 @@ class Dirichlet_Distribution:
 
             singular_integral_one = ((delta)**self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]
             singular_integral_two = ((delta)**self.alphas[singular_borders[1]]) / self.alphas[singular_borders[1]]
-            integral_overlap = 1
+            integral_overlap = (delta**(self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]) \
+                        + (delta**(self.alphas[singular_borders[1]]) / self.alphas[singular_borders[1]])
+
+            
 
 
-        crude_integral = nonsingular_integral * singular_integral
-        error_integral = nonsingular_integral * (singular_integral - abs_err)
+        
         #print(f"the crude is {crude_integral}, the error integral is {error_integral}, the abs err is {abs_err}")
 
         return error_integral
