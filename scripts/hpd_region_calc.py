@@ -40,7 +40,7 @@ def main():
     dirichlet_object.calcHPDArea()
     dirichlet_object.getSingularStripArea()
     
-    #dirichlet_object.plotHPDRegion()
+    dirichlet_object.plotHPDRegion()
 
 
 #function for ensuring all floating point numbers are in mpmath precision
@@ -265,6 +265,7 @@ class Dirichlet_Distribution:
 
     def plotHPDRegion(self):
         self.plotSimplex()
+        self.getThresholdDensity(0.95)
         for i in range(len(self.triangles)):
             x_tri = []
             y_tri = []
@@ -276,6 +277,8 @@ class Dirichlet_Distribution:
                     if (j == 2):
                         x_tri.append(x_tri[0])
                         y_tri.append(y_tri[0])
+                    plt.plot(x_tri, y_tri, 'r.')
+                '''
                 if (self.amr_visual[i] <= 10) and (self.amr_visual[i] > 7):
                     plt.plot(x_tri, y_tri, color = 'maroon', marker = '.')
                 elif (self.amr_visual[i] <= 7) and (self.amr_visual[i] > 2):
@@ -284,8 +287,25 @@ class Dirichlet_Distribution:
                     plt.plot(x_tri, y_tri, color = 'orange', marker = '.')
                 elif (self.amr_visual[i] == 0):
                     plt.plot(x_tri, y_tri, color = 'yellow', marker = '.')
+                '''
+        for i in range(len(self.strip_coords)):
+            x_tri = []
+            y_tri = []
+            if(self.strip_nodes[i] > 0):
+                for j in range(3):
+                    #print(self.strip_coords[i][j])
+                    x, y = bc2xy(self.strip_coords[i][j])
+                    x_tri.append(x)
+                    y_tri.append(y)
+                    if (j == 2):
+                        x_tri.append(x_tri[0])
+                        y_tri.append(y_tri[0])
+                    #plt.fill(x_tri, y_tri, color = 'red')
+                    plt.plot(x_tri, y_tri, color = 'red', marker = '.')
+                #print("self strip nodes greater than 0")
         #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
         #plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
+        print(f"len self hpd nodes is {len(self.hpd_nodes)} and for strip coords length is {len(self.strip_coords)}")
         plt.show()     
 
     #function for obtaining subtriangle area; used in the event AMR is employed and subtriangles are not uniform area
@@ -435,7 +455,7 @@ class Dirichlet_Distribution:
 
 
         self.integrateWithGQ() 
-        t = self.getThresholdDensity(0.95)
+        self.getThresholdDensity(0.95)
 
         hpd_area = self.sumHPDTriangles()
         
@@ -516,7 +536,12 @@ class Dirichlet_Distribution:
                 hpd_area += self.getSubArea(self.triangles[i])
             elif(self.hpd_nodes[i] == 0):
                 continue
-
+        if(min(self.alphas) < 1) and (self.iterator >= 1):
+            for i in range(len(self.strip_nodes)):
+                if(self.strip_nodes == 13):
+                    hpd_area += self.delta**2
+                
+        print(f"hpd area here is {hpd_area}")
         #now, add capability to get strip area
 
         return hpd_area
@@ -650,11 +675,13 @@ class Dirichlet_Distribution:
             if threshold_init < p:
                 if p_mass_indices[i] >= len(self.p_mass):
                     threshold_init += self.strip_masses[p_mass_indices[i] - (len(self.p_mass))]
-                    print(f"len self strip masses is {len(self.strip_masses)}, with self.strip mases [] = {self.strip_masses[p_mass_indices[i] - len(self.p_mass)]}")
+                    #print(f"p mass indices i=0 is {p_mass_indices[i]} and len p mass is {len(self.p_mass)} which given index {p_mass_indices[i] - len(self.p_mass)}")
                     self.strip_nodes[p_mass_indices[i] - len(self.p_mass)] = 13
+                    #print(f"strip node int: {threshold_init}")
                 elif p_mass_indices[i] < len(self.p_mass):
                     threshold_init += self.p_mass[p_mass_indices[i]]
                     self.hpd_nodes[p_mass_indices[i]] = 13
+                    #print(f"reg node int: {threshold_init}")
             else:
                 if p_mass_indices[i] >= len(self.p_mass):
                     self.strip_nodes[p_mass_indices[i] - len(self.p_mass)] = 0
@@ -802,13 +829,26 @@ class Dirichlet_Distribution:
             #print(f"example integral is {example}, vs beta one: {beta_one}")
 
             mass_test = 0
+            self.strip_masses = []
+            self.strip_nodes = []
+            self.strip_coords = []
             print(len(interval))
             for i in range(len(interval) - 1):
                 mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]]-1, self.alphas[nonsingular_borders[1]]-1), interval[i], interval[i+1])
                 self.strip_masses.append(mass[0] * singular_integral * (1/beta_dirichlet))
-                #self.strip_coords.append()
+                segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i], 0, self.delta]]#, [1-self.delta - interval[i+1], interval[i+1]-interval[i], self.delta]]
+                if(np.argmin(self.alphas) == 1):
+                    for j in range(len(segment_coords)):
+                        #print(f"segcoords j = {segment_coords[j]}")
+                        segment_coords[j] = segment_coords[j][-1:] + segment_coords[j][:-1]
+                elif(np.argmin(self.alphas) == 2):
+                    for j in segment_coords:
+                        segment_coords[j] = segment_coords[j][-2:] + segment_coords[j][:-2]
+                self.strip_coords.append(segment_coords)
+                self.strip_nodes.append(0)
                 mass_test += mass[0]
-            print(f"mass test is {sum(strip_masses)}") #works
+            print(f"mass test is {sum(self.strip_masses)}") #works
+
             return (strip_masses, delta)
 
 
@@ -1002,7 +1042,7 @@ class Dirichlet_Distribution:
             x, y = bc2xy(self.vertices[subtriangle[i]])
             x_list.append(x)
             y_list.append(y)
-        plt.plot(x_list, y_list, 'r.')
+        #plt.plot(x_list, y_list, 'r.')
         return pdf_integral
 
     '''
