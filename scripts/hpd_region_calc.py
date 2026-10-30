@@ -10,7 +10,7 @@ from mpmath import quad
 import numpy as np
 from scipy import optimize
 from scipy import stats
-from scipy.integrate import dblquad
+from scipy.integrate import quad, dblquad
 from scipy.stats import dirichlet
 from scipy.special import gamma, factorial, beta
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
@@ -38,8 +38,9 @@ def main():
     dirichlet_object.plotSimplex()
     dirichlet_object.testTSBounds()
     dirichlet_object.calcHPDArea()
+    dirichlet_object.getSingularStripArea()
     
-    dirichlet_object.plotHPDRegion()
+    #dirichlet_object.plotHPDRegion()
 
 
 #function for ensuring all floating point numbers are in mpmath precision
@@ -510,6 +511,8 @@ class Dirichlet_Distribution:
             elif(self.hpd_nodes[i] == 0):
                 continue
 
+        #now, add capability to get strip area
+
         return hpd_area
 
     def checkBorder(self, subtriangle):
@@ -620,6 +623,9 @@ class Dirichlet_Distribution:
         #sort subtriangles by density; not mass, because subtriangle area may vary
         tmp_density_array = []
 
+        #if(min(self.alphas) < 1):
+            
+
         for i in range(len(self.p_mass)):
             tmp_density_array.append(self.p_mass[i] / self.getSubArea(self.triangles[i]))
         tmp_density_array = np.array([float(x) for x in tmp_density_array])
@@ -655,32 +661,12 @@ class Dirichlet_Distribution:
             if (((abs(self.getSubHeight(self.triangles[i]) - delta) < 1e-15)) and (self.checkBorder(self.triangles[i]) == True)) or (self.subdivided[i] == True):
                 self.subdivided[i] = True
                 self.p_mass[i] = 0
-                self.hpd_nodes[i] = 13
+                self.hpd_nodes[i] = 0
                 tmp_mass += self.p_mass[i]
                 #print(f"subtriangle {self.triangles[i]} with p mass {self.p_mass[i]} is in the strip, with delta = {self.getSubHeight(self.triangles[i])}")
                 continue
-            #else if the subtriangle is not subdivided and is in the boundary region, use tanh sinh(commented out for GQ)
-            '''
-            elif(self.subdivided[i] == False) and (i >= self.res**2):
-                #self.p_mass[i] = self.gaussQuadSub(self.triangles[i])#self.tanhSinhIntegral(self.triangles[i])
-                alt_mass += self.p_mass[i]
-                self.total_mass += alt_mass
-                continue
-            #else if the subtrianlge is not subdivided and is not near the singularity, reuse the GQ p mass
-            elif(self.subdivided[i] == False) and (i < self.res**2):
-                alt_mass += self.p_mass[i]
-                self.total_mass += alt_mass
-                continue
-            else:
-                print(f"subtriangle {self.triangles[i]} is here with p mass {self.p_mass[i]}")
-            if i % 20 == 0:
-                print(f"{i}/{len(self.triangles)} triangles computed")
-            '''
-        #self.total_mass = 0
-        print(f"strip mass with GQ is is {tmp_mass}, mass of all but strip with gq is {alt_mass}")
+
         self.integrateWithGQ()
-        #self.integrateWithTS(True)
-        #for i in range(len(self.p_mass))
         print(f"the total mass pre strip integration is {self.total_mass}")
         self.total_mass += self.getSingularStripMass()
         print(f"the total mass with strip integration is {self.total_mass}")
@@ -746,14 +732,59 @@ class Dirichlet_Distribution:
             crude_integral = (1 / beta_dirichlet) * (nonsingular_integral_one * singular_integral_one + nonsingular_integral_two * singular_integral_two - integral_overlap)
             error_integral = crude_integral
             
+        return error_integral
+
+    #return a list of segmented strip masses
+    def getSingularStripArea(self):
+        delta = self.getSidelength(self.triangles[-1])
+        interval = np.arange(0, delta+1,delta)
+        singular_borders = []
+        nonsingular_borders = []
+        strip_masses = []
+
+        if(min(self.alphas) > 1):
+                    print(f"the params {self.alphas} are not singular. Quitting.")
+                    quit()
+        
+        for i in range(len(self.alphas)):
+            if self.alphas[i] < 1:
+                singular_borders.append(i)
+            else:
+                nonsingular_borders.append(i)
+        
+        #calculate the analytical inner integral; B(beta_i, beta_k)/B(beta_i, beta_j, beta_k) and the singular integral delta^beta_j/beta_j
+        if(len(singular_borders) == 1):
+            singular_integral = ((delta)**self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]
+            beta_dirichlet = gm(self.alphas[0]) * gm(self.alphas[1]) * gm(self.alphas[2]) / gm(self.alphas[0] + self.alphas[1] + self.alphas[2])
+
+            def partialBeta(z, a, b):
+                return z**a * (1-z)**b
+
+            beta_one = gm(self.alphas[nonsingular_borders[0]]) * gm(self.alphas[nonsingular_borders[1]]) / gm(self.alphas[nonsingular_borders[0]] \
+                        + self.alphas[nonsingular_borders[1]])
+            beta_dirichlet = gm(self.alphas[0]) * gm(self.alphas[1]) * gm(self.alphas[2]) / gm(self.alphas[0] + self.alphas[1] + self.alphas[2])
+            nonsingular_integral = beta_one / beta_dirichlet
+            singular_integral = ((delta)**self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]
+
+            #example = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]]-1, self.alphas[nonsingular_borders[1]]-1), 0, 0.5)
+            #print(f"example integral is {example}, vs beta one: {beta_one}")
+
+            mass_test = 0
+            print(len(interval))
+            for i in range(len(interval)-1):
+                mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]]-1, self.alphas[nonsingular_borders[1]]-1), interval[i], interval[i+1])
+                strip_masses.append(mass[0] * singular_integral * (1/beta_dirichlet))
+                mass_test += mass[0]
+            print(f"mass test is {sum(strip_masses)}") #works
+            return (strip_masses, delta)
+
 
 
         
-        #print(f"the crude is {crude_integral}, the error integral is {error_integral}, the abs err is {abs_err}")
 
-        return error_integral
 
-     #get bounds of integration for the singular subtriangle as a range [u0, u1]x[v0, v1]
+    
+    #get bounds of integration for the singular subtriangle as a range [u0, u1]x[v0, v1]
     def genTanhSinhMeshUVBound(self, subtriangle):
         #alpha = [toMpMath(k) for k in alpha]
         #h = toMpMath(h)
