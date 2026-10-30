@@ -646,6 +646,25 @@ class Dirichlet_Distribution:
         #get initial estimation for threshold density from a descending sort of density
         threshold_init = 0
 
+        for i in range(len(tmp_density_array)):
+            if threshold_init < p:
+                if p_mass_indices[i] >= len(self.p_mass):
+                    threshold_init += self.strip_masses[p_mass_indices[i] - (len(self.p_mass))]
+                    print(f"len self strip masses is {len(self.strip_masses)}, with self.strip mases [] = {self.strip_masses[p_mass_indices[i] - len(self.p_mass)]}")
+                    self.strip_nodes[p_mass_indices[i] - len(self.p_mass)] = 13
+                elif p_mass_indices[i] < len(self.p_mass):
+                    threshold_init += self.p_mass[p_mass_indices[i]]
+                    self.hpd_nodes[p_mass_indices[i]] = 13
+            else:
+                if p_mass_indices[i] >= len(self.p_mass):
+                    self.strip_nodes[p_mass_indices[i] - len(self.p_mass)] = 0
+                elif p_mass_indices[i] < len(self.p_mass):
+                    self.hpd_nodes[p_mass_indices[i]] = 0
+
+                
+
+
+        '''
         #self.hpd_nodes = np.zeros(len(self.p_mass))
         for i in range(len(self.p_mass)): #convert to cumulative sum
             if(threshold_init < p):
@@ -657,6 +676,7 @@ class Dirichlet_Distribution:
                 
             else:
                 self.hpd_nodes[p_mass_indices[i]] = 0
+            '''
 
         return threshold_init
 
