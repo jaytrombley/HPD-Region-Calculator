@@ -279,7 +279,7 @@ class Dirichlet_Distribution:
                     plt.plot(x_tri, y_tri, color = 'yellow', marker = '.')
         #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
         #plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
-        #plt.show()     
+        plt.show()     
 
     #function for obtaining subtriangle area; used in the event AMR is employed and subtriangles are not uniform area
     def getSubArea(self, subtriangle):
@@ -729,18 +729,22 @@ class Dirichlet_Distribution:
 
         elif(len(singular_borders) == 2):
             beta_one = gm(self.alphas[nonsingular_borders[0]]) * gm(self.alphas[singular_borders[0]]) / gm(self.alphas[nonsingular_borders[0]] \
-                        + self.alphas[singular_borders[0]])
+                        + self.alphas[singular_borders[0]]) #beta(i, k)
             beta_two = gm(self.alphas[nonsingular_borders[0]]) * gm(self.alphas[singular_borders[1]]) / gm(self.alphas[nonsingular_borders[0]] \
-                        + self.alphas[singular_borders[1]])
-            beta_dirichlet = gm(self.alphas[0]) * gm(self.alphas[1]) * gm(self.alphas[2]) / gm(self.alphas[0] + self.alphas[1] + self.alphas[2])
-            nonsingular_integral_two = beta_one / beta_dirichlet
-            nonsingular_integral_one = beta_two / beta_dirichlet
+                        + self.alphas[singular_borders[1]]) #beta(j, k)
+            beta_dirichlet = gm(self.alphas[0]) * gm(self.alphas[1]) * gm(self.alphas[2]) / gm(self.alphas[0] + self.alphas[1] + self.alphas[2]) #beta(i, j, k)
+            nonsingular_integral_two = beta_one
+            nonsingular_integral_one = beta_two
 
             singular_integral_one = ((delta)**self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]
             singular_integral_two = ((delta)**self.alphas[singular_borders[1]]) / self.alphas[singular_borders[1]]
             integral_overlap = (delta**(self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]) \
                         * (delta**(self.alphas[singular_borders[1]]) / self.alphas[singular_borders[1]])
+            abs_err = 0
+            #print(f"singular one is {singular_integral_one}, ns1 is {nonsingular_integral_one}, giving {(1/beta_dirichlet) *singular_integral_one*nonsingular_integral_one}")
 
+            crude_integral = (1 / beta_dirichlet) * (nonsingular_integral_one * singular_integral_one + nonsingular_integral_two * singular_integral_two - integral_overlap)
+            error_integral = crude_integral
             
 
 
