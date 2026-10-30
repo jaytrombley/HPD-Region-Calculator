@@ -836,14 +836,14 @@ class Dirichlet_Distribution:
             for i in range(len(interval) - 1):
                 mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]]-1, self.alphas[nonsingular_borders[1]]-1), interval[i], interval[i+1])
                 self.strip_masses.append(mass[0] * singular_integral * (1/beta_dirichlet))
-                segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i], 0, self.delta]]#, [1-self.delta - interval[i+1], interval[i+1]-interval[i], self.delta]]
+                segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]#, [1-self.delta - interval[i+1], interval[i+1]-interval[i], self.delta]]
                 if(np.argmin(self.alphas) == 1):
                     for j in range(len(segment_coords)):
                         #print(f"segcoords j = {segment_coords[j]}")
-                        segment_coords[j] = segment_coords[j][-1:] + segment_coords[j][:-1]
-                elif(np.argmin(self.alphas) == 2):
-                    for j in segment_coords:
                         segment_coords[j] = segment_coords[j][-2:] + segment_coords[j][:-2]
+                elif(np.argmin(self.alphas) == 0):
+                    for j in range(len(segment_coords)):
+                        segment_coords[j] = segment_coords[j][-1:] + segment_coords[j][:-1]
                 self.strip_coords.append(segment_coords)
                 self.strip_nodes.append(0)
                 mass_test += mass[0]
