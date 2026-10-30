@@ -20,7 +20,7 @@ from matplotlib import patches as mpatches
 import matplotlib.tri as tri
 
 #set mpmath global precision for tanh-sinh quadrature
-mp.mp.dps = 35
+mp.mp.dps = 16
 
 def main():
 
@@ -148,6 +148,12 @@ class Dirichlet_Distribution:
 
     #mass of the domain, for accountability purposes after performing all calculations
     mass = 0
+
+    #singularity variables: strip segment mass, strip segment HPD indicator, strip segment coords
+    strip_masses = []
+    strip_nodes = []
+    strip_coords = []
+    delta = 0
 
     #parameter for s, t-domain. These are the roughly-picked intervals on the real lines that go into our u-v unit square as a result of the tanh-sinh function.
     t_extrema = 2
@@ -622,15 +628,20 @@ class Dirichlet_Distribution:
 
         #sort subtriangles by density; not mass, because subtriangle area may vary
         tmp_density_array = []
-
-        #if(min(self.alphas) < 1):
-            
+        tmp_strip_arr = []
 
         for i in range(len(self.p_mass)):
             tmp_density_array.append(self.p_mass[i] / self.getSubArea(self.triangles[i]))
+        if(min(self.alphas) < 1):
+            self.getSingularStripArea()
+            for j in range(len(self.strip_masses)):
+                if(j == (len(self.strip_masses) - 1)):
+                    tmp_density_array.append(self.strip_masses[j] / (self.delta**2 / 2))
+                    continue
+                tmp_density_array.append(self.strip_masses[j] / (self.delta**2))
         tmp_density_array = np.array([float(x) for x in tmp_density_array])
         p_mass_indices = np.argsort(tmp_density_array)[::-1] #get indices for largest -> smallest density triangles
-        del tmp_density_array
+        #del tmp_density_array
 
         #get initial estimation for threshold density from a descending sort of density
         threshold_init = 0
@@ -737,6 +748,7 @@ class Dirichlet_Distribution:
     #return a list of segmented strip masses
     def getSingularStripArea(self):
         delta = self.getSidelength(self.triangles[-1])
+        self.delta = delta
         interval = np.arange(0, delta+1,delta)
         singular_borders = []
         nonsingular_borders = []
@@ -771,9 +783,10 @@ class Dirichlet_Distribution:
 
             mass_test = 0
             print(len(interval))
-            for i in range(len(interval)-1):
+            for i in range(len(interval) - 1):
                 mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]]-1, self.alphas[nonsingular_borders[1]]-1), interval[i], interval[i+1])
-                strip_masses.append(mass[0] * singular_integral * (1/beta_dirichlet))
+                self.strip_masses.append(mass[0] * singular_integral * (1/beta_dirichlet))
+                #self.strip_coords.append()
                 mass_test += mass[0]
             print(f"mass test is {sum(strip_masses)}") #works
             return (strip_masses, delta)
