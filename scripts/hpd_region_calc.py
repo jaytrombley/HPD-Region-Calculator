@@ -30,7 +30,7 @@ def main():
     alpha3 = sys.argv[3]
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 11
+    resolution = 201
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
@@ -277,7 +277,7 @@ class Dirichlet_Distribution:
                     if (j == 2):
                         x_tri.append(x_tri[0])
                         y_tri.append(y_tri[0])
-                    plt.plot(x_tri, y_tri, 'r.')
+                    plt.plot(x_tri, y_tri, 'y.')
                 '''
                 if (self.amr_visual[i] <= 10) and (self.amr_visual[i] > 7):
                     plt.plot(x_tri, y_tri, color = 'maroon', marker = '.')
@@ -468,20 +468,23 @@ class Dirichlet_Distribution:
         if((self.alphas[0] < 1) or (self.alphas[1] < 1) or (self.alphas[2] < 1)): #or if total domain mass is < 0.99
             self.iterator = 1
             division_counts = 0
-            while (self.total_mass < 0.999) and (division_counts <= 4): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
+            while (self.total_mass < 0.999) and (division_counts <= 2): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
                 self.singularitySubDivide()
                 self.integrateWithGQ()
                 t = self.getThresholdDensity(0.95)
                 hpd_area = self.sumHPDTriangles()
                 
                             
-                print(f"HPD Area for params {self.alphas} is {hpd_area} for iteration {division_counts + 2}")
+                #print(f"HPD Area for params {self.alphas} is {hpd_area} for iteration {division_counts + 2}")
                 if(self.length_record == len(self.triangles)):
                     print(f"all subtriangles have variance constrained for quadrature.")
                     break
                 division_counts += 1
                 self.iterator += 1
             self.integrateSingularBoundary()
+            self.getThresholdDensity(0.95)
+            hpd_area = self.sumHPDTriangles()
+            print(f"final hpd region area is {hpd_area}")
 
         print(f"the strip integral provides {self.getSingularStripMass()} for a delta of {self.getSidelength(self.triangles[-1])}")
         
@@ -538,7 +541,7 @@ class Dirichlet_Distribution:
                 continue
         if(min(self.alphas) < 1) and (self.iterator >= 1):
             for i in range(len(self.strip_nodes)):
-                if(self.strip_nodes == 13):
+                if(self.strip_nodes[i] == 13):
                     hpd_area += self.delta**2
                 
         print(f"hpd area here is {hpd_area}")
