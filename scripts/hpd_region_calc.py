@@ -30,7 +30,7 @@ def main():
     alpha3 = sys.argv[3]
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 11
+    resolution = 101
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
@@ -38,7 +38,7 @@ def main():
     dirichlet_object.plotSimplex()
     dirichlet_object.testTSBounds()
     dirichlet_object.calcHPDArea()
-    dirichlet_object.getSingularStripArea()
+    #dirichlet_object.getSingularStripArea()
     
     dirichlet_object.plotHPDRegion()
 
@@ -278,7 +278,7 @@ class Dirichlet_Distribution:
                     if (j == 2):
                         x_tri.append(x_tri[0])
                         y_tri.append(y_tri[0])
-                    plt.plot(x_tri, y_tri, 'y.')
+                    plt.plot(x_tri, y_tri, 'r.')
                 '''
                 if (self.amr_visual[i] <= 10) and (self.amr_visual[i] > 7):
                     plt.plot(x_tri, y_tri, color = 'maroon', marker = '.')
@@ -302,7 +302,7 @@ class Dirichlet_Distribution:
                         x_tri.append(x_tri[0])
                         y_tri.append(y_tri[0])
                     #plt.fill(x_tri, y_tri, color = 'red')
-                    plt.plot(x_tri, y_tri, color = 'red', marker = '.')
+                    plt.plot(x_tri, y_tri, color = 'maroon', marker = '.')
                 #print("self strip nodes greater than 0")
         plt.title(f"HPD REGION AREA: {self.hpd_area}")
         #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
@@ -485,12 +485,13 @@ class Dirichlet_Distribution:
                 self.iterator += 1
             self.integrateSingularBoundary()
             self.getThresholdDensity(0.95)
-            self.hpd_area = self.sumHPDTriangles()
-            print(f"final hpd region area is {self.hpd_area}")
+        self.hpd_area = self.sumHPDTriangles()
+        print(f"final hpd region area is {self.hpd_area}")
 
-        print(f"the strip integral provides {self.getSingularStripMass()} for a delta of {self.getSidelength(self.triangles[-1])}")
+        #print(f"the strip integral provides {self.getSingularStripMass()} for a delta of {self.getSidelength(self.triangles[-1])}")
         
-        print(f"the process took {division_counts} levels of subdivision")
+        if self.iterator >0:
+            print(f"the process took {division_counts} levels of subdivision")
         #self.iterator = 1
 
 
@@ -841,6 +842,7 @@ class Dirichlet_Distribution:
             for i in range(len(interval) - 1):
                 mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]]-1, self.alphas[nonsingular_borders[1]]-1), interval[i], interval[i+1])
                 self.strip_masses.append(mass[0] * singular_integral * (1/beta_dirichlet))
+                #coordinates of strip
                 segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]#, [1-self.delta - interval[i+1], interval[i+1]-interval[i], self.delta]]
                 if(np.argmin(self.alphas) == 1):
                     for j in range(len(segment_coords)):
@@ -848,7 +850,12 @@ class Dirichlet_Distribution:
                         segment_coords[j] = segment_coords[j][-2:] + segment_coords[j][:-2]
                 elif(np.argmin(self.alphas) == 0):
                     for j in range(len(segment_coords)):
+                        #seg_coord_1 = segment_coords[j][0]
+                        segment_coords[j][0] , segment_coords[j][1] = segment_coords[j][1], segment_coords[j][0]
                         segment_coords[j] = segment_coords[j][-1:] + segment_coords[j][:-1]
+                elif(np.argmin(self.alphas) == 2):
+                    for j in range(len(segment_coords)):
+                        segment_coords[j][0] , segment_coords[j][1] = segment_coords[j][1], segment_coords[j][0]
                 self.strip_coords.append(segment_coords)
                 self.strip_nodes.append(0)
                 mass_test += mass[0]
