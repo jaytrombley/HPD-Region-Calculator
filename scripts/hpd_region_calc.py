@@ -30,7 +30,7 @@ def main():
     alpha3 = sys.argv[3]
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 201
+    resolution = 11
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
@@ -148,6 +148,7 @@ class Dirichlet_Distribution:
 
     #mass of the domain, for accountability purposes after performing all calculations
     mass = 0
+    hpd_area = 0
 
     #singularity variables: strip segment mass, strip segment HPD indicator, strip segment coords
     strip_masses = []
@@ -303,6 +304,7 @@ class Dirichlet_Distribution:
                     #plt.fill(x_tri, y_tri, color = 'red')
                     plt.plot(x_tri, y_tri, color = 'red', marker = '.')
                 #print("self strip nodes greater than 0")
+        plt.title(f"HPD REGION AREA: {self.hpd_area}")
         #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
         #plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
         print(f"len self hpd nodes is {len(self.hpd_nodes)} and for strip coords length is {len(self.strip_coords)}")
@@ -483,8 +485,8 @@ class Dirichlet_Distribution:
                 self.iterator += 1
             self.integrateSingularBoundary()
             self.getThresholdDensity(0.95)
-            hpd_area = self.sumHPDTriangles()
-            print(f"final hpd region area is {hpd_area}")
+            self.hpd_area = self.sumHPDTriangles()
+            print(f"final hpd region area is {self.hpd_area}")
 
         print(f"the strip integral provides {self.getSingularStripMass()} for a delta of {self.getSidelength(self.triangles[-1])}")
         
