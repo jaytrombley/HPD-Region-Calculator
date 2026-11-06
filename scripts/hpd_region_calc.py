@@ -835,19 +835,26 @@ class Dirichlet_Distribution:
                         + self.alphas[nonsingular_borders[1]])
             
             #nonsingular_integral = beta_one / beta_dirichlet
+            ns_coeffs = self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]]
             singular_integral = ((delta)**self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]
+            L_x = (ns_coeffs - 1) * (delta**(self.alphas[singular_borders[0]]+1)) / (self.alphas[singular_borders[0]]+1)
+            Q_x = (ns_coeffs - 1) * (ns_coeffs - 2) / \
+                    (factorial(2) * (self.alphas[singular_borders[0]] + 2)) * (delta**(self.alphas[singular_borders[0]] + 2))
+            C_x = (ns_coeffs - 1) * (ns_coeffs - 2) * \
+                    (ns_coeffs - 3) / (factorial(3) * (self.alphas[singular_borders[0]] + 3)) * (delta**(self.alphas[singular_borders[0]] + 3))
+            abs_err = L_x - Q_x + C_x
 
-            #example = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]]-1, self.alphas[nonsingular_borders[1]]-1), 0, 0.5)
-            #print(f"example integral is {example}, vs beta one: {beta_one}")
+            example = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]]-1, self.alphas[nonsingular_borders[1]]-1), 0, 1)
+            print(f"example integral is {example}, vs beta one: {beta_one}")
 
-            #mass_test = 0
+            mass_test = 0
             self.strip_masses = []
             self.strip_nodes = []
             self.strip_coords = []
             #print(len(interval))
             for i in range(len(interval) - 1):
                 mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]]-1, self.alphas[nonsingular_borders[1]]-1), interval[i], interval[i+1])
-                self.strip_masses.append(mass[0] * singular_integral * (1/beta_dirichlet))
+                self.strip_masses.append(mass[0] * (singular_integral - abs_err) * (1/beta_dirichlet))
 
                 #below code block is for plotting and determining the coordinates of the strip.
                 segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]#, [1-self.delta - interval[i+1], interval[i+1]-interval[i], self.delta]]
@@ -865,9 +872,9 @@ class Dirichlet_Distribution:
                         #segment_coords[j][0] , segment_coords[j][1] = segment_coords[j][1], segment_coords[j][0]
                 self.strip_coords.append(segment_coords)
                 self.strip_nodes.append(0)
-                #mass_test += mass[0]
+                mass_test += mass[0]
 
-            print(f"Strip area function mass test: {sum(self.strip_masses)} in strip") #works
+            #print(f"Strip area function mass test: {mass_test * (1/beta_dirichlet) * (singular_integral - abs_err)} in strip vs analytical: {(beta_one / beta_dirichlet) * (singular_integral - abs_err)} vs function for it {self.getSingularStripMass()}") #works
 
             #return (strip_masses, delta)
 
@@ -900,6 +907,51 @@ class Dirichlet_Distribution:
                     segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]
                     for k in range(len(segment_coords)):
                         segment_coords[k] = segment_coords[k][-2:] + segment_coords[k][:-2]
+                    self.strip_coords.append(segment_coords)
+                    self.strip_nodes.append(0)
+
+            #if alpha2 and alpha 3 are singular
+            elif(self.alphas[0] >= 1):
+                for i in range(len(interval) - 1):
+                    #integrate the x1 integral for x2 near zero (singular alpha2) first
+                    mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]] - 1, self.alphas[singular_borders[1]] - 1), interval[i], interval[i+1])
+                    self.strip_masses.append(mass[0] * singular_integral1 * (1/beta_dirichlet))
+            
+                    segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]
+                    for k in range(len(segment_coords)):
+                        segment_coords[k] = segment_coords[k][-2:] + segment_coords[k][:-2]
+                    self.strip_coords.append(segment_coords)
+                    self.strip_nodes.append(0)
+                for i in range(1, len(interval) - 1):
+                    #integrate x2 integral for x_3 near zero
+                    mass = quad(lambda x: partialBeta(x, self.alphas[singular_borders[0]] - 1, self.alphas[nonsingular_borders[0]]), interval[i], interval[i+1])
+                    self.strip_masses.append(mass[0] * singular_integral2 * (1/beta_dirichlet))
+            
+                    segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]
+                    #for k in range(len(segment_coords)):
+                    #    segment_coords[k] = segment_coords[k][-2:] + segment_coords[k][:-2]
+                    self.strip_coords.append(segment_coords)
+                    self.strip_nodes.append(0)
+
+            elif(self.alphas[1] >= 1):
+                for i in range(len(interval) - 1):
+                    #integrate the x2 integral for x3 near zero (singular alpha3) first
+                    mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]] - 1, self.alphas[singular_borders[0]] - 1), interval[i], interval[i+1])
+                    self.strip_masses.append(mass[0] * singular_integral2 * (1/beta_dirichlet))
+            
+                    segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]
+                    #for k in range(len(segment_coords)):
+                    #    segment_coords[k] = segment_coords[k][-1:] + segment_coords[k][:-1]
+                    self.strip_coords.append(segment_coords)
+                    self.strip_nodes.append(0)
+                for i in range(1, len(interval) - 1):
+                    #integrate x3 integral for x_1 near zero
+                    mass = quad(lambda x: partialBeta(x, self.alphas[singular_borders[1]] - 1, self.alphas[nonsingular_borders[0]]), interval[i], interval[i+1])
+                    self.strip_masses.append(mass[0] * singular_integral1 * (1/beta_dirichlet))
+            
+                    segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]
+                    for k in range(len(segment_coords)):
+                        segment_coords[k] = segment_coords[k][-1:] + segment_coords[k][:-1]
                     self.strip_coords.append(segment_coords)
                     self.strip_nodes.append(0)
 
