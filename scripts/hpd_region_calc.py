@@ -30,7 +30,7 @@ def main():
     alpha3 = sys.argv[3]
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 101
+    resolution = 11
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
@@ -302,7 +302,7 @@ class Dirichlet_Distribution:
                         x_tri.append(x_tri[0])
                         y_tri.append(y_tri[0])
                     #plt.fill(x_tri, y_tri, color = 'red')
-                    plt.plot(x_tri, y_tri, color = 'maroon', marker = '.')
+                    plt.plot(x_tri, y_tri, color = 'red', marker = '.')
                 #print("self strip nodes greater than 0")
         plt.title(f"HPD REGION AREA: {self.hpd_area}")
         #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
@@ -546,9 +546,6 @@ class Dirichlet_Distribution:
             for i in range(len(self.strip_nodes)):
                 if(self.strip_nodes[i] == 13):
                     hpd_area += self.delta**2
-                
-        print(f"hpd area here is {hpd_area}")
-        #now, add capability to get strip area
 
         return hpd_area
 
@@ -591,7 +588,6 @@ class Dirichlet_Distribution:
                 self.ts_counts += 1
                 print(f"subtriangle {self.triangles[i]} ")
             '''
-        print(f"pre-GQ total mass is {self.total_mass}, with {self.ts_counts} subtriangles calc via TS")
             
 
         #need to allocate more values to subtriangle property arrays
@@ -810,39 +806,45 @@ class Dirichlet_Distribution:
         if(min(self.alphas) > 1):
                     print(f"the params {self.alphas} are not singular. Quitting.")
                     quit()
+
+        def partialBeta(z, a, b):
+            return z**a * (1-z)**b
         
         for i in range(len(self.alphas)):
             if self.alphas[i] < 1:
                 singular_borders.append(i)
             else:
                 nonsingular_borders.append(i)
+
+        #ensure swapping of nonsingular params for singular alpha 1 and alpha 3 to ensure consistency with beta pdf integration
+        if((self.alphas[0] < 1) or (self.alphas[2] < 1)):
+            nonsingular_borders[0], nonsingular_borders[1] = nonsingular_borders[1], nonsingular_borders[0]
         
         #calculate the analytical inner integral; B(beta_i, beta_k)/B(beta_i, beta_j, beta_k) and the singular integral delta^beta_j/beta_j
         if(len(singular_borders) == 1):
-            singular_integral = ((delta)**self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]
+            #singular_integral = ((delta)**self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]
             beta_dirichlet = gm(self.alphas[0]) * gm(self.alphas[1]) * gm(self.alphas[2]) / gm(self.alphas[0] + self.alphas[1] + self.alphas[2])
 
-            def partialBeta(z, a, b):
-                return z**a * (1-z)**b
 
             beta_one = gm(self.alphas[nonsingular_borders[0]]) * gm(self.alphas[nonsingular_borders[1]]) / gm(self.alphas[nonsingular_borders[0]] \
                         + self.alphas[nonsingular_borders[1]])
             beta_dirichlet = gm(self.alphas[0]) * gm(self.alphas[1]) * gm(self.alphas[2]) / gm(self.alphas[0] + self.alphas[1] + self.alphas[2])
-            nonsingular_integral = beta_one / beta_dirichlet
+            #nonsingular_integral = beta_one / beta_dirichlet
             singular_integral = ((delta)**self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]
 
             #example = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]]-1, self.alphas[nonsingular_borders[1]]-1), 0, 0.5)
             #print(f"example integral is {example}, vs beta one: {beta_one}")
 
-            mass_test = 0
+            #mass_test = 0
             self.strip_masses = []
             self.strip_nodes = []
             self.strip_coords = []
-            print(len(interval))
+            #print(len(interval))
             for i in range(len(interval) - 1):
                 mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]]-1, self.alphas[nonsingular_borders[1]]-1), interval[i], interval[i+1])
                 self.strip_masses.append(mass[0] * singular_integral * (1/beta_dirichlet))
-                #coordinates of strip
+
+                #below code block is for plotting and determining the coordinates of the strip.
                 segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]#, [1-self.delta - interval[i+1], interval[i+1]-interval[i], self.delta]]
                 if(np.argmin(self.alphas) == 1):
                     for j in range(len(segment_coords)):
@@ -851,17 +853,30 @@ class Dirichlet_Distribution:
                 elif(np.argmin(self.alphas) == 0):
                     for j in range(len(segment_coords)):
                         #seg_coord_1 = segment_coords[j][0]
-                        segment_coords[j][0] , segment_coords[j][1] = segment_coords[j][1], segment_coords[j][0]
+                        #segment_coords[j][0] , segment_coords[j][1] = segment_coords[j][1], segment_coords[j][0]
                         segment_coords[j] = segment_coords[j][-1:] + segment_coords[j][:-1]
-                elif(np.argmin(self.alphas) == 2):
-                    for j in range(len(segment_coords)):
-                        segment_coords[j][0] , segment_coords[j][1] = segment_coords[j][1], segment_coords[j][0]
+                #elif(np.argmin(self.alphas) == 2):
+                    #for j in range(len(segment_coords)):
+                        #segment_coords[j][0] , segment_coords[j][1] = segment_coords[j][1], segment_coords[j][0]
                 self.strip_coords.append(segment_coords)
                 self.strip_nodes.append(0)
-                mass_test += mass[0]
-            print(f"mass test is {sum(self.strip_masses)}") #works
+                #mass_test += mass[0]
 
-            return (strip_masses, delta)
+            print(f"Strip area function mass test: {sum(self.strip_masses)} in strip") #works
+
+            #return (strip_masses, delta)
+
+        if(len(singular_borders) == 2):
+            singular_integral1 = ((delta**self.alphas[singular_borders[0]])) / self.alphas[singular_borders[0]]
+            singular_integral2 = ((delta)**self.alphas[singular_borders[1]]) / self.alphas[singular_borders[1]]
+
+            mass_test = 0
+            self.strip_masses = []
+            self.strip_nodes = []
+            self.strip_coords = []
+
+            for i in range(len(interval) - 1):
+                mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]] - 1, self.alphas[singular_borders[1]] - 1), interval[i], interval[i+1])
 
 
 
