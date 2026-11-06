@@ -30,7 +30,7 @@ def main():
     alpha3 = sys.argv[3]
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 11
+    resolution = 101
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
@@ -809,6 +809,8 @@ class Dirichlet_Distribution:
 
         def partialBeta(z, a, b):
             return z**a * (1-z)**b
+
+        beta_dirichlet = gm(self.alphas[0]) * gm(self.alphas[1]) * gm(self.alphas[2]) / gm(self.alphas[0] + self.alphas[1] + self.alphas[2])
         
         for i in range(len(self.alphas)):
             if self.alphas[i] < 1:
@@ -817,18 +819,21 @@ class Dirichlet_Distribution:
                 nonsingular_borders.append(i)
 
         #ensure swapping of nonsingular params for singular alpha 1 and alpha 3 to ensure consistency with beta pdf integration
-        if((self.alphas[0] < 1) or (self.alphas[2] < 1)):
-            nonsingular_borders[0], nonsingular_borders[1] = nonsingular_borders[1], nonsingular_borders[0]
+        #if((self.alphas[0] < 1) or (self.alphas[2] < 1)):
+        #    nonsingular_borders[0], nonsingular_borders[1] = nonsingular_borders[1], nonsingular_borders[0]
         
         #calculate the analytical inner integral; B(beta_i, beta_k)/B(beta_i, beta_j, beta_k) and the singular integral delta^beta_j/beta_j
         if(len(singular_borders) == 1):
-            #singular_integral = ((delta)**self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]
-            beta_dirichlet = gm(self.alphas[0]) * gm(self.alphas[1]) * gm(self.alphas[2]) / gm(self.alphas[0] + self.alphas[1] + self.alphas[2])
 
+            #ensure swapping of nonsingular params for singular alpha 1 and alpha 3 to ensure consistency with beta pdf integration
+            if((self.alphas[0] < 1) or (self.alphas[2] < 1)):
+                nonsingular_borders[0], nonsingular_borders[1] = nonsingular_borders[1], nonsingular_borders[0]
+            
+            #beta_dirichlet = gm(self.alphas[0]) * gm(self.alphas[1]) * gm(self.alphas[2]) / gm(self.alphas[0] + self.alphas[1] + self.alphas[2])
 
             beta_one = gm(self.alphas[nonsingular_borders[0]]) * gm(self.alphas[nonsingular_borders[1]]) / gm(self.alphas[nonsingular_borders[0]] \
                         + self.alphas[nonsingular_borders[1]])
-            beta_dirichlet = gm(self.alphas[0]) * gm(self.alphas[1]) * gm(self.alphas[2]) / gm(self.alphas[0] + self.alphas[1] + self.alphas[2])
+            
             #nonsingular_integral = beta_one / beta_dirichlet
             singular_integral = ((delta)**self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]
 
@@ -875,12 +880,28 @@ class Dirichlet_Distribution:
             self.strip_nodes = []
             self.strip_coords = []
 
-            for i in range(len(interval) - 1):
-                mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]] - 1, self.alphas[singular_borders[1]] - 1), interval[i], interval[i+1])
+            #if alpha 1 and alpha 2 are singular
+            if(self.alphas[2] >= 1):
+                for i in range(len(interval) - 1):
+                #integrate the x3 integral for x1 near zero (singular alpha1) first
+                    mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]] - 1, self.alphas[singular_borders[1]] - 1), interval[i], interval[i+1])
+                    self.strip_masses.append(mass[0] * singular_integral1 * (1/beta_dirichlet))
 
+                    segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]
+                    for k in range(len(segment_coords)):
+                        segment_coords[k] = segment_coords[k][-1:] + segment_coords[k][:-1]
+                    self.strip_coords.append(segment_coords)
+                    self.strip_nodes.append(0)
+                for i in range(1, len(interval) - 1):
+                    #integrate x1 integral for x_2 near zero
+                    mass = quad(lambda x: partialBeta(x, self.alphas[singular_borders[0]] - 1, self.alphas[nonsingular_borders[0]]), interval[i], interval[i+1])
+                    self.strip_masses.append(mass[0] * singular_integral2 * (1/beta_dirichlet))
 
-
-        
+                    segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]
+                    for k in range(len(segment_coords)):
+                        segment_coords[k] = segment_coords[k][-2:] + segment_coords[k][:-2]
+                    self.strip_coords.append(segment_coords)
+                    self.strip_nodes.append(0)
 
 
     
