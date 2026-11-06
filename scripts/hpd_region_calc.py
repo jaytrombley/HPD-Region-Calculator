@@ -786,11 +786,43 @@ class Dirichlet_Distribution:
             singular_integral_two = ((delta)**self.alphas[singular_borders[1]]) / self.alphas[singular_borders[1]]
             integral_overlap = (delta**(self.alphas[singular_borders[0]]) / self.alphas[singular_borders[0]]) \
                         * (delta**(self.alphas[singular_borders[1]]) / self.alphas[singular_borders[1]])
-            abs_err = 0
+
+            #absolute error calculation for first strip
+            ns_coeffs = self.alphas[nonsingular_borders[0]] + self.alphas[singular_borders[1]]
+            L_x = (ns_coeffs - 1) * (delta**(self.alphas[singular_borders[0]]+1)) / (self.alphas[singular_borders[0]]+1)
+            Q_x = (ns_coeffs - 1) * (ns_coeffs - 2) / \
+                    (factorial(2) * (self.alphas[singular_borders[0]] + 2)) * (delta**(self.alphas[singular_borders[0]] + 2))
+            C_x = (ns_coeffs - 1) * (ns_coeffs - 2) * \
+                    (ns_coeffs - 3) / (factorial(3) * (self.alphas[singular_borders[0]] + 3)) * (delta**(self.alphas[singular_borders[0]] + 3))
+            abs_err_1 = L_x - Q_x + C_x
+
+            #absolute error for second strip
+            ns_coeffs = self.alphas[nonsingular_borders[0]] + self.alphas[singular_borders[0]]
+            L_x = (ns_coeffs - 1) * (delta**(self.alphas[singular_borders[1]]+1)) / (self.alphas[singular_borders[1]]+1)
+            Q_x = (ns_coeffs - 1) * (ns_coeffs - 2) / \
+                    (factorial(2) * (self.alphas[singular_borders[1]] + 2)) * (delta**(self.alphas[singular_borders[1]] + 2))
+            C_x = (ns_coeffs - 1) * (ns_coeffs - 2) * \
+                    (ns_coeffs - 3) / (factorial(3) * (self.alphas[singular_borders[1]] + 3)) * (delta**(self.alphas[singular_borders[1]] + 3))
+            abs_err_2 = L_x - Q_x + C_x
+
+            #absolute error for overlap
+            s_coeffs = (delta**(self.alphas[singular_borders[0]] + self.alphas[singular_borders[1]] + 1)) * (self.alphas[nonsingular_borders[0] - 1])
+            T_1 = ((1/(self.alphas[singular_borders[0]] * self.alphas[singular_borders[1]] + self.alphas[singular_borders[1]])) + \
+                    (1/(self.alphas[singular_borders[0]] * self.alphas[singular_borders[1]] + self.alphas[singular_borders[0]])))
+            T_2 = (self.alphas[nonsingular_borders[0]] - 2) * delta * \
+                    ((1/(2 * self.alphas[singular_borders[0]] * self.alphas[singular_borders[1]] + (4 * self.alphas[singular_borders[1]]))) + \
+                    (1/((self.alphas[singular_borders[0]] + 1) * (self.alphas[singular_borders[1]] + 1))) +\
+                    (1/(2 * self.alphas[singular_borders[0]] * self.alphas[singular_borders[1]] + (4 * self.alphas[singular_borders[0]]))))
+            abs_err_overlap = s_coeffs * (T_1 - T_2)
+
             #print(f"singular one is {singular_integral_one}, ns1 is {nonsingular_integral_one}, giving {(1/beta_dirichlet) *singular_integral_one*nonsingular_integral_one}")
 
             crude_integral = (1 / beta_dirichlet) * (nonsingular_integral_one * singular_integral_one + nonsingular_integral_two * singular_integral_two - integral_overlap)
-            error_integral = crude_integral
+            error_integral = (1 / beta_dirichlet) * (nonsingular_integral_one * (singular_integral_one - abs_err_1) + \
+                    nonsingular_integral_two * (singular_integral_two - abs_err_2) - (integral_overlap - abs_err_overlap))
+            potential_error_integral = (1 / beta_dirichlet) * (nonsingular_integral_one * (singular_integral_one - abs_err_1) + \
+                    nonsingular_integral_two * (singular_integral_two - abs_err_2) - integral_overlap)
+            #print(f"test: two singular params, crude is {crude_integral}, actual is {error_integral}, potential is {potential_error_integral}")
             
         return error_integral
 
@@ -882,6 +914,35 @@ class Dirichlet_Distribution:
             singular_integral1 = ((delta**self.alphas[singular_borders[0]])) / self.alphas[singular_borders[0]]
             singular_integral2 = ((delta)**self.alphas[singular_borders[1]]) / self.alphas[singular_borders[1]]
 
+            ### BLOCK OF CODE BELOW IS FOR ERROR CORRECTIONS
+            ns_coeffs = self.alphas[nonsingular_borders[0]] + self.alphas[singular_borders[1]]
+            L_x = (ns_coeffs - 1) * (delta**(self.alphas[singular_borders[0]]+1)) / (self.alphas[singular_borders[0]]+1)
+            Q_x = (ns_coeffs - 1) * (ns_coeffs - 2) / \
+                    (factorial(2) * (self.alphas[singular_borders[0]] + 2)) * (delta**(self.alphas[singular_borders[0]] + 2))
+            C_x = (ns_coeffs - 1) * (ns_coeffs - 2) * \
+                    (ns_coeffs - 3) / (factorial(3) * (self.alphas[singular_borders[0]] + 3)) * (delta**(self.alphas[singular_borders[0]] + 3))
+            abs_err_1 = L_x - Q_x + C_x
+
+            #absolute error for second strip
+            ns_coeffs = self.alphas[nonsingular_borders[0]] + self.alphas[singular_borders[0]]
+            L_x = (ns_coeffs - 1) * (delta**(self.alphas[singular_borders[1]]+1)) / (self.alphas[singular_borders[1]]+1)
+            Q_x = (ns_coeffs - 1) * (ns_coeffs - 2) / \
+                    (factorial(2) * (self.alphas[singular_borders[1]] + 2)) * (delta**(self.alphas[singular_borders[1]] + 2))
+            C_x = (ns_coeffs - 1) * (ns_coeffs - 2) * \
+                    (ns_coeffs - 3) / (factorial(3) * (self.alphas[singular_borders[1]] + 3)) * (delta**(self.alphas[singular_borders[1]] + 3))
+            abs_err_2 = L_x - Q_x + C_x
+
+            #absolute error for overlap
+            s_coeffs = (delta**(self.alphas[singular_borders[0]] + self.alphas[singular_borders[1]] + 1)) * (self.alphas[nonsingular_borders[0] - 1])
+            T_1 = ((1/(self.alphas[singular_borders[0]] * self.alphas[singular_borders[1]] + self.alphas[singular_borders[1]])) + \
+                    (1/(self.alphas[singular_borders[0]] * self.alphas[singular_borders[1]] + self.alphas[singular_borders[0]])))
+            T_2 = (self.alphas[nonsingular_borders[0]] - 2) * delta * \
+                    ((1/(2 * self.alphas[singular_borders[0]] * self.alphas[singular_borders[1]] + (4 * self.alphas[singular_borders[1]]))) + \
+                    (1/((self.alphas[singular_borders[0]] + 1) * (self.alphas[singular_borders[1]] + 1))) +\
+                    (1/(2 * self.alphas[singular_borders[0]] * self.alphas[singular_borders[1]] + (4 * self.alphas[singular_borders[0]]))))
+            abs_err_overlap = s_coeffs * (T_1 - T_2)
+            ### END ERROR CORRECTIONS
+
             mass_test = 0
             self.strip_masses = []
             self.strip_nodes = []
@@ -892,7 +953,7 @@ class Dirichlet_Distribution:
                 for i in range(len(interval) - 1):
                 #integrate the x3 integral for x1 near zero (singular alpha1) first
                     mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]] - 1, self.alphas[singular_borders[1]] - 1), interval[i], interval[i+1])
-                    self.strip_masses.append(mass[0] * singular_integral1 * (1/beta_dirichlet))
+                    self.strip_masses.append(mass[0] * (singular_integral1 - abs_err_1) * (1/beta_dirichlet))
 
                     segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]
                     for k in range(len(segment_coords)):
@@ -902,7 +963,7 @@ class Dirichlet_Distribution:
                 for i in range(1, len(interval) - 1):
                     #integrate x1 integral for x_2 near zero
                     mass = quad(lambda x: partialBeta(x, self.alphas[singular_borders[0]] - 1, self.alphas[nonsingular_borders[0]]), interval[i], interval[i+1])
-                    self.strip_masses.append(mass[0] * singular_integral2 * (1/beta_dirichlet))
+                    self.strip_masses.append(mass[0] * (singular_integral2 - abs_err_2) * (1/beta_dirichlet))
 
                     segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]
                     for k in range(len(segment_coords)):
@@ -915,7 +976,7 @@ class Dirichlet_Distribution:
                 for i in range(len(interval) - 1):
                     #integrate the x1 integral for x2 near zero (singular alpha2) first
                     mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]] - 1, self.alphas[singular_borders[1]] - 1), interval[i], interval[i+1])
-                    self.strip_masses.append(mass[0] * singular_integral1 * (1/beta_dirichlet))
+                    self.strip_masses.append(mass[0] * (singular_integral1 - abs_err_1) * (1/beta_dirichlet))
             
                     segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]
                     for k in range(len(segment_coords)):
@@ -925,7 +986,7 @@ class Dirichlet_Distribution:
                 for i in range(1, len(interval) - 1):
                     #integrate x2 integral for x_3 near zero
                     mass = quad(lambda x: partialBeta(x, self.alphas[singular_borders[0]] - 1, self.alphas[nonsingular_borders[0]]), interval[i], interval[i+1])
-                    self.strip_masses.append(mass[0] * singular_integral2 * (1/beta_dirichlet))
+                    self.strip_masses.append(mass[0] * (singular_integral2 - abs_err_2) * (1/beta_dirichlet))
             
                     segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]
                     #for k in range(len(segment_coords)):
@@ -937,7 +998,7 @@ class Dirichlet_Distribution:
                 for i in range(len(interval) - 1):
                     #integrate the x2 integral for x3 near zero (singular alpha3) first
                     mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]] - 1, self.alphas[singular_borders[0]] - 1), interval[i], interval[i+1])
-                    self.strip_masses.append(mass[0] * singular_integral2 * (1/beta_dirichlet))
+                    self.strip_masses.append(mass[0] * (singular_integral2 - abs_err_2) * (1/beta_dirichlet))
             
                     segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]
                     #for k in range(len(segment_coords)):
@@ -947,7 +1008,7 @@ class Dirichlet_Distribution:
                 for i in range(1, len(interval) - 1):
                     #integrate x3 integral for x_1 near zero
                     mass = quad(lambda x: partialBeta(x, self.alphas[singular_borders[1]] - 1, self.alphas[nonsingular_borders[0]]), interval[i], interval[i+1])
-                    self.strip_masses.append(mass[0] * singular_integral1 * (1/beta_dirichlet))
+                    self.strip_masses.append(mass[0] * (singular_integral1 - abs_err_1) * (1/beta_dirichlet))
             
                     segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]
                     for k in range(len(segment_coords)):
