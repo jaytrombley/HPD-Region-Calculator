@@ -30,7 +30,7 @@ def main():
     alpha3 = sys.argv[3]
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 11
+    resolution = 201
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
@@ -734,6 +734,11 @@ class Dirichlet_Distribution:
 
     def getSingularStripMass(self):
         delta = self.getSidelength(self.triangles[-1])
+        n_seg = int(mp.nint(1/delta)) #convert near-integer 1/delta to integer for segmentation
+        assert abs(n_seg*delta - 1) < 1e-9 #guard against interval not being 1-length
+        delta = mp.mpf(1)/n_seg #redefine delta
+        self.delta = delta
+
         singular_borders = []
         nonsingular_borders = []
         nonsingular_integral = 0
@@ -829,11 +834,10 @@ class Dirichlet_Distribution:
     #return a list of segmented strip masses
     def getSingularStripArea(self):
         delta = self.getSidelength(self.triangles[-1])
-        self.delta = delta
-
         n_seg = int(mp.nint(1/delta))
         assert abs(n_seg*delta - 1) < 1e-9
         delta = mp.mpf(1)/n_seg
+        self.delta = delta
         interval = np.linspace(0, 1, n_seg + 1)
 
         #interval = np.arange(0, delta+1,delta)
@@ -841,7 +845,6 @@ class Dirichlet_Distribution:
         nonsingular_borders = []
         strip_masses = []
 
-        print(f"INTERVAL IS min: {min(interval)} and max is {max(interval)}, with delta {delta}")
 
         if(min(self.alphas) > 1):
                     print(f"the params {self.alphas} are not singular. Quitting.")
@@ -871,8 +874,8 @@ class Dirichlet_Distribution:
             
             #beta_dirichlet = gm(self.alphas[0]) * gm(self.alphas[1]) * gm(self.alphas[2]) / gm(self.alphas[0] + self.alphas[1] + self.alphas[2])
 
-            beta_one = gm(self.alphas[nonsingular_borders[0]]) * gm(self.alphas[nonsingular_borders[1]]) / gm(self.alphas[nonsingular_borders[0]] \
-                        + self.alphas[nonsingular_borders[1]])
+            #beta_one = gm(self.alphas[nonsingular_borders[0]]) * gm(self.alphas[nonsingular_borders[1]]) / gm(self.alphas[nonsingular_borders[0]] \
+            #            + self.alphas[nonsingular_borders[1]])
             
             #nonsingular_integral = beta_one / beta_dirichlet
             ns_coeffs = self.alphas[nonsingular_borders[0]] + self.alphas[nonsingular_borders[1]]
@@ -884,16 +887,18 @@ class Dirichlet_Distribution:
                     (ns_coeffs - 3) / (factorial(3) * (self.alphas[singular_borders[0]] + 3)) * (delta**(self.alphas[singular_borders[0]] + 3))
             abs_err = L_x - Q_x + C_x
 
-            example = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]]-1, self.alphas[nonsingular_borders[1]]-1), 0, 1)
-            print(f"example integral is {example}, vs beta one: {beta_one}")
+            #example = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]]-1, self.alphas[nonsingular_borders[1]]-1), 0, 1)
+            #print(f"example integral is {example}, vs beta one: {beta_one}")
 
             mass_test = 0
+            mass_test_mp = 0
             self.strip_masses = []
             self.strip_nodes = []
             self.strip_coords = []
             #print(len(interval))
             for i in range(len(interval) - 1):
                 mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]]-1, self.alphas[nonsingular_borders[1]]-1), interval[i], interval[i+1])
+                mass2 = mp.betainc(self.alphas[nonsingular_borders[0]], self.alphas[nonsingular_borders[1]], interval[i], interval[i+1])
                 self.strip_masses.append(mass[0] * (singular_integral - abs_err) * (1/beta_dirichlet))
 
                 #below code block is for plotting and determining the coordinates of the strip.
@@ -913,8 +918,9 @@ class Dirichlet_Distribution:
                 self.strip_coords.append(segment_coords)
                 self.strip_nodes.append(0)
                 mass_test += mass[0]
+                mass_test_mp += mass2
 
-            #print(f"Strip area function mass test: {mass_test * (1/beta_dirichlet) * (singular_integral - abs_err)} in strip vs analytical: {(beta_one / beta_dirichlet) * (singular_integral - abs_err)} vs function for it {self.getSingularStripMass()}") #works
+            print(f"Strip area function mass test: {mass_test * (1/beta_dirichlet) * (singular_integral - abs_err)} in strip vs mp: {(1 / beta_dirichlet) * (singular_integral - abs_err) * mass_test_mp} vs function for it {self.getSingularStripMass()}") #works
 
             #return (strip_masses, delta)
 
@@ -960,8 +966,9 @@ class Dirichlet_Distribution:
             if(self.alphas[2] >= 1):
                 for i in range(len(interval) - 1):
                 #integrate the x3 integral for x1 near zero (singular alpha1) first
-                    mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]] - 1, self.alphas[singular_borders[1]] - 1), interval[i], interval[i+1])
-                    self.strip_masses.append(mass[0] * (singular_integral1 - abs_err_1) * (1/beta_dirichlet))
+                    #mass = quad(lambda x: partialBeta(x, self.alphas[nonsingular_borders[0]] - 1, self.alphas[singular_borders[1]] - 1), interval[i], interval[i+1])
+                    mass = mp.betainc(self.alphas[nonsingular_borders[0]], self.alphas[singular_borders[1]], interval[i], interval[i+1])
+                    self.strip_masses.append(mass * (singular_integral1 - abs_err_1) * (1/beta_dirichlet))
 
                     segment_coords = [[1-interval[i], interval[i], 0], [1-interval[i+1], interval[i+1], 0], [1-interval[i+1], interval[i], self.delta]]
                     for k in range(len(segment_coords)):
