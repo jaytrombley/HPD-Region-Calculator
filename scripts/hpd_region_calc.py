@@ -30,7 +30,7 @@ def main():
     alpha3 = sys.argv[3]
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 101
+    resolution = 11
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
@@ -470,7 +470,7 @@ class Dirichlet_Distribution:
         if((self.alphas[0] < 1) or (self.alphas[1] < 1) or (self.alphas[2] < 1)): #or if total domain mass is < 0.99
             self.iterator = 1
             division_counts = 0
-            while (self.total_mass < 0.999) and (division_counts <= 2): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
+            while (self.total_mass < 0.999) and (division_counts <= 4): #cap this to 10 for now, and also do tanh sinh vs subdivision logic for each step
                 self.singularitySubDivide()
                 self.integrateWithGQ()
                 t = self.getThresholdDensity(0.95)
@@ -830,10 +830,18 @@ class Dirichlet_Distribution:
     def getSingularStripArea(self):
         delta = self.getSidelength(self.triangles[-1])
         self.delta = delta
-        interval = np.arange(0, delta+1,delta)
+
+        n_seg = int(mp.nint(1/delta))
+        assert abs(n_seg*delta - 1) < 1e-9
+        delta = mp.mpf(1)/n_seg
+        interval = np.linspace(0, 1, n_seg + 1)
+
+        #interval = np.arange(0, delta+1,delta)
         singular_borders = []
         nonsingular_borders = []
         strip_masses = []
+
+        print(f"INTERVAL IS min: {min(interval)} and max is {max(interval)}, with delta {delta}")
 
         if(min(self.alphas) > 1):
                     print(f"the params {self.alphas} are not singular. Quitting.")
