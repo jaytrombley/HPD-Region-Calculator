@@ -30,7 +30,7 @@ def main():
     alpha3 = sys.argv[3]
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 201
+    resolution = 101
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
