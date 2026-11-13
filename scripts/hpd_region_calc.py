@@ -120,6 +120,7 @@ class Dirichlet_Distribution:
 
     #distribution parameters
     alphas = [0, 0, 0]
+    mean = [0, 0, 0]
 
     #resolution of mesh, tanh-sinh step, domain area, total domain mass
     res = 0
@@ -178,6 +179,8 @@ class Dirichlet_Distribution:
         self.res_ts = toMpMath(h)
         self.p = toMpMath(p)
         self.alphas = [toMpMath(i) for i in params]
+        a0 = self.alphas[0] + self.alphas[1] + self.alphas[2]
+        self.mean = [i/toMpMath(a0) for i in self.alphas]
 
         #segment sides of triangle for grid to perform numerical integration in barycentric coordinates
         n = mp.linspace(0, 1, a)
@@ -304,11 +307,16 @@ class Dirichlet_Distribution:
                     #plt.fill(x_tri, y_tri, color = 'red')
                     plt.plot(x_tri, y_tri, color = 'red', marker = '.')
                 #print("self strip nodes greater than 0")
+        self.plotExtremals()
         plt.title(f"HPD REGION AREA: {self.hpd_area}")
         #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
         #plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
         print(f"len self hpd nodes is {len(self.hpd_nodes)} and for strip coords length is {len(self.strip_coords)}")
-        plt.show()     
+        plt.show()
+
+    def plotExtremals(self):
+        x0, y0 = bc2xy(self.mean)
+        plt.plot(x0, y0, 'co')
 
     #function for obtaining subtriangle area; used in the event AMR is employed and subtriangles are not uniform area
     def getSubArea(self, subtriangle):
