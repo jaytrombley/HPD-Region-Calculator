@@ -30,7 +30,7 @@ def main():
     alpha3 = sys.argv[3]
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 101
+    resolution = 11
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
@@ -39,7 +39,7 @@ def main():
     dirichlet_object.testTSBounds()
     dirichlet_object.calcHPDArea()
     #dirichlet_object.getSingularStripArea()
-    
+    dirichlet_object.getHPDBoundary()
     dirichlet_object.plotHPDRegion()
 
 
@@ -1034,6 +1034,25 @@ class Dirichlet_Distribution:
                         segment_coords[k] = segment_coords[k][-1:] + segment_coords[k][:-1]
                     self.strip_coords.append(segment_coords)
                     self.strip_nodes.append(0)
+
+        #function for getting HPD boundary via convex hull method.
+    def getHPDBoundary(self):
+        x_y_list = []
+        for i in range(len(self.hpd_nodes)):
+            if (self.hpd_nodes[i] != 0):
+                for j in range(3):
+                    x, y = bc2xy(self.vertices[self.triangles[i][j]])
+                    x_y_list.append([x,y])
+            else:
+                continue
+        hull = ConvexHull(x_y_list)
+        hull_vertices_p1 = np.append(hull.vertices, hull.vertices[0])
+        if self.iterator == 0:
+            plt.plot(hull.points[hull_vertices_p1,0], hull.points[hull_vertices_p1, 1], 'c-', lw=2, label="HPD Boundary")
+        elif self.iterator >= 1:
+            plt.plot(hull.points[hull_vertices_p1,0], hull.points[hull_vertices_p1, 1], 'g-', lw=2, label="HPD Boundary")
+        print(hull.points[1:10])
+        return hull.points
 
 
     
