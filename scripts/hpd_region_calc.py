@@ -311,6 +311,8 @@ class Dirichlet_Distribution:
                     #plt.fill(x_tri, y_tri, color = 'red')
                     plt.plot(x_tri, y_tri, color = 'red', marker = '.')
                 #print("self strip nodes greater than 0")
+        #HPD_boundary = self.getHPDBoundary()
+        
         self.plotExtremals()
         plt.title(f"HPD REGION AREA: {self.hpd_area}")
         #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
@@ -325,6 +327,7 @@ class Dirichlet_Distribution:
         plt.plot([x0, 0], [y0,0], color='cyan')
         plt.plot([x0, 0.5], [y0,(np.sqrt(3)/2)], color='cyan')
         plt.plot(x0, y0, 'mo', label='distribution mean')
+        #self.getHPDBoundary()
         self.calcExtremalPoints()
         plt.plot(self.extremals[0][0], self.extremals[0][1], marker = 'o', color = 'yellow')
         plt.plot(self.extremals[1][0], self.extremals[1][1], marker = 'o', color = 'yellow')
@@ -1073,13 +1076,11 @@ class Dirichlet_Distribution:
                 continue
         hull = ConvexHull(x_y_list)
         hull_vertices_p1 = np.append(hull.vertices, hull.vertices[0])
-        if self.iterator == 0:
-            plt.plot(hull.points[hull_vertices_p1,0], hull.points[hull_vertices_p1, 1], 'g-', lw=2, label="HPD Boundary")
-        elif self.iterator >= 1:
-            plt.plot(hull.points[hull_vertices_p1,0], hull.points[hull_vertices_p1, 1], 'm-', lw=2, label="HPD Boundary")
+        plt.plot(hull.points[hull_vertices_p1,0], hull.points[hull_vertices_p1, 1], 'g-', lw=2, label="HPD Boundary")
         #print(hull.points[1:10])
         return hull.points
 
+    #hull is a lis of points composing the HPD region, from getHPD Boundary function
     def calcExtremalPoints(self):
         x0, y0 = bc2xy(self.mean)
         hull = self.getHPDBoundary()
