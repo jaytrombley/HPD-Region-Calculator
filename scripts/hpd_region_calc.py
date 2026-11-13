@@ -33,7 +33,7 @@ def main():
     alpha3 = sys.argv[3]
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 11
+    resolution = 201
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
@@ -1080,14 +1080,14 @@ class Dirichlet_Distribution:
         print(f"params singular: {params_singular}")
 
         for i in range(len(self.hpd_nodes)):
-            if params_singular == 0:
+            if params_singular == 0 or self.singularParams == 1:
                 if (self.hpd_nodes[i] != 0):
                     for j in range(3):
                         x, y = bc2xy(self.vertices[self.triangles[i][j]])
                         x_y_list.append([x,y])
                 else:
                     continue
-            elif params_singular == 2: #append complement to calculate convex hull
+            elif (params_singular == 2): #append complement to calculate convex hull
                 if(self.hpd_nodes[i] == 0) and (self.subdivided[i] != 1):
                     for j in range(3):
                         x, y = bc2xy(self.vertices[self.triangles[i][j]])
@@ -1116,7 +1116,7 @@ class Dirichlet_Distribution:
         int3 = shapely.intersection(hull, l3)
         xs3, ys3 = int3.xy
 
-        if(self.singularParams <2):
+        if(self.singularParams <= 1):
             if (self.getDistance([xs1[0], ys1[0]], [x0, y0]) > self.getDistance([xs1[1], ys1[1]], [x0, y0])):
                 self.extremals[0] = [xs1[0], ys1[0]]
             else:
@@ -1132,7 +1132,7 @@ class Dirichlet_Distribution:
             else:
                 self.extremals[2] = [xs3[1], ys3[1]]
 
-        elif(self.singularParams == 2):
+        elif(self.singularParams > 1):
             if(len(xs1) == 0):
                 self.extremals[0] = [mp.mpf(0.5), mp.sqrt(3)/2]
             elif (self.getDistance([xs1[0], ys1[0]], [x0, y0]) > self.getDistance([xs1[1], ys1[1]], [x0, y0])):
