@@ -14,6 +14,8 @@ from scipy.integrate import quad, dblquad
 from scipy.stats import dirichlet
 from scipy.special import gamma, factorial, beta
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
+import shapely
+from shapely import LineString, Polygon
 import matplotlib.pyplot as plt
 from matplotlib import rc
 from matplotlib import patches as mpatches
@@ -30,17 +32,18 @@ def main():
     alpha3 = sys.argv[3]
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 11
+    resolution = 101
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
     dirichlet_object = Dirichlet_Distribution(resolution, resolution_ts, alphas, p)
-    dirichlet_object.plotSimplex()
-    dirichlet_object.testTSBounds()
+    #dirichlet_object.plotSimplex()
+    #dirichlet_object.testTSBounds()
     dirichlet_object.calcHPDArea()
     #dirichlet_object.getSingularStripArea()
-    dirichlet_object.getHPDBoundary()
+    #dirichlet_object.getHPDBoundary()
     dirichlet_object.plotHPDRegion()
+    #dirichlet_object.calcExtremalPoints()
 
 
 #function for ensuring all floating point numbers are in mpmath precision
@@ -121,6 +124,7 @@ class Dirichlet_Distribution:
     #distribution parameters
     alphas = [0, 0, 0]
     mean = [0, 0, 0]
+    extremals = [0, 0, 0]
 
     #resolution of mesh, tanh-sinh step, domain area, total domain mass
     res = 0
@@ -261,7 +265,7 @@ class Dirichlet_Distribution:
         plt.plot(a, b, 'go', label='(0, 1, 0)')
         plt.legend()
         o = f"Resolution: n={self.res}"
-        plt.figtext(0.375, 0.075, o)
+        plt.figtext(0.5, 0.005, o, ha='center')
 
         #plt.show()
         #plt.savefig("C://Users//T Mill//Documents//Research//CNRE Summer 2026//Dirichlet_uq_eigenspace//hpd_calc_visuals.png")
@@ -316,7 +320,16 @@ class Dirichlet_Distribution:
 
     def plotExtremals(self):
         x0, y0 = bc2xy(self.mean)
-        plt.plot(x0, y0, 'co')
+
+        plt.plot([x0, 1], [y0,0], color='cyan')
+        plt.plot([x0, 0], [y0,0], color='cyan')
+        plt.plot([x0, 0.5], [y0,(np.sqrt(3)/2)], color='cyan')
+        plt.plot(x0, y0, 'mo', label='distribution mean')
+        self.calcExtremalPoints()
+        plt.plot(self.extremals[0][0], self.extremals[0][1], marker = 'o', color = 'yellow')
+        plt.plot(self.extremals[1][0], self.extremals[1][1], marker = 'o', color = 'yellow')
+        plt.plot(self.extremals[2][0], self.extremals[2][1], marker = 'o', color = 'yellow')
+        plt.legend()
 
     #function for obtaining subtriangle area; used in the event AMR is employed and subtriangles are not uniform area
     def getSubArea(self, subtriangle):
@@ -340,6 +353,11 @@ class Dirichlet_Distribution:
         
         sidelength = mp.sqrt((x_1 - x_0)**2 + (y_1-y_0)**2)
         return sidelength
+
+    #get the distance between cartesian points
+    def getDistance(self, xyCoord1, xyCoord2):
+        dist = mp.sqrt((xyCoord2[0] - xyCoord1[0])**2 + (xyCoord2[1] - xyCoord1[1])**2)
+        return dist
 
     #function for getting the local (within a subtriangle) barycentric coordinates given the parent BC triangle coords
     def localBCfromRefBC(self,subtriangle, bc):
@@ -1056,11 +1074,42 @@ class Dirichlet_Distribution:
         hull = ConvexHull(x_y_list)
         hull_vertices_p1 = np.append(hull.vertices, hull.vertices[0])
         if self.iterator == 0:
-            plt.plot(hull.points[hull_vertices_p1,0], hull.points[hull_vertices_p1, 1], 'c-', lw=2, label="HPD Boundary")
-        elif self.iterator >= 1:
             plt.plot(hull.points[hull_vertices_p1,0], hull.points[hull_vertices_p1, 1], 'g-', lw=2, label="HPD Boundary")
-        print(hull.points[1:10])
+        elif self.iterator >= 1:
+            plt.plot(hull.points[hull_vertices_p1,0], hull.points[hull_vertices_p1, 1], 'm-', lw=2, label="HPD Boundary")
+        #print(hull.points[1:10])
         return hull.points
+
+    def calcExtremalPoints(self):
+        x0, y0 = bc2xy(self.mean)
+        hull = self.getHPDBoundary()
+        hull = LineString(hull)
+        hull = hull.convex_hull
+        l1 = LineString([(x0, y0), (mp.mpf(0.5), mp.mpf(mp.sqrt(3)/2))])
+        l2 = LineString([(x0, y0), (0, 0)])
+        l3 = LineString([(x0, y0), (1, 0)])
+        int1 = shapely.intersection(hull, l1)
+        print(int1)
+        xs, ys = int1.xy
+        if (self.getDistance([xs[0], ys[0]], [x0, y0]) > self.getDistance([xs[1], ys[1]], [x0, y0])):
+            self.extremals[0] = [xs[0], ys[0]]
+        else:
+            self.extremals[0] = [xs[1], ys[1]]
+        int2 = shapely.intersection(hull, l2)
+                #print(len(int1.geoms), type(int1.geoms[0].x))
+        xs, ys = int2.xy
+        if (self.getDistance([xs[0], ys[0]], [x0, y0]) > self.getDistance([xs[1], ys[1]], [x0, y0])):
+            self.extremals[1] = [xs[0], ys[0]]
+        else:
+            self.extremals[1] = [xs[1], ys[1]]
+        int3 = shapely.intersection(hull, l3)
+        xs, ys = int3.xy
+        if (self.getDistance([xs[0], ys[0]], [x0, y0]) > self.getDistance([xs[1], ys[1]], [x0, y0])):
+            self.extremals[2] = [xs[0], ys[0]]
+        else:
+            self.extremals[2] = [xs[1], ys[1]]
+        #print(f"hull.boundary is {hull.boundary}")
+
 
 
     
