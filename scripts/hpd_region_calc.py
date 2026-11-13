@@ -15,7 +15,8 @@ from scipy.stats import dirichlet
 from scipy.special import gamma, factorial, beta
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
 import shapely
-from shapely import LineString, Polygon
+from shapely import LineString, Polygon, MultiPoint
+from shapely import concave_hull
 import matplotlib.pyplot as plt
 from matplotlib import rc
 from matplotlib import patches as mpatches
@@ -32,7 +33,7 @@ def main():
     alpha3 = sys.argv[3]
     alphas = (toMpMath(alpha1), toMpMath(alpha2), toMpMath(alpha3))
 
-    resolution = 101
+    resolution = 11
     resolution_ts = mp.mpf('0.001')
     p = mp.mpf('0.95')
 
@@ -123,6 +124,7 @@ class Dirichlet_Distribution:
 
     #distribution parameters
     alphas = [0, 0, 0]
+    singularParams = 0
     mean = [0, 0, 0]
     extremals = [0, 0, 0]
 
@@ -185,6 +187,10 @@ class Dirichlet_Distribution:
         self.alphas = [toMpMath(i) for i in params]
         a0 = self.alphas[0] + self.alphas[1] + self.alphas[2]
         self.mean = [i/toMpMath(a0) for i in self.alphas]
+
+        for i in range(3):
+            if self.alphas[i] < 1:
+                self.singularParams += 1
 
         #segment sides of triangle for grid to perform numerical integration in barycentric coordinates
         n = mp.linspace(0, 1, a)
@@ -312,7 +318,7 @@ class Dirichlet_Distribution:
                     plt.plot(x_tri, y_tri, color = 'red', marker = '.')
                 #print("self strip nodes greater than 0")
         #HPD_boundary = self.getHPDBoundary()
-        
+        self.getHPDBoundary()
         self.plotExtremals()
         plt.title(f"HPD REGION AREA: {self.hpd_area}")
         #plt.savefig("/home/jay/Documents/Research/CNRE/Dirichlet/hpd_calc_visual.png")
@@ -1067,13 +1073,25 @@ class Dirichlet_Distribution:
         #function for getting HPD boundary via convex hull method.
     def getHPDBoundary(self):
         x_y_list = []
+        params_singular = 0
+        for i in range(3):
+            if self.alphas[i] <1:
+                params_singular += 1
+        print(f"params singular: {params_singular}")
+
         for i in range(len(self.hpd_nodes)):
-            if (self.hpd_nodes[i] != 0):
-                for j in range(3):
-                    x, y = bc2xy(self.vertices[self.triangles[i][j]])
-                    x_y_list.append([x,y])
-            else:
-                continue
+            if params_singular == 0:
+                if (self.hpd_nodes[i] != 0):
+                    for j in range(3):
+                        x, y = bc2xy(self.vertices[self.triangles[i][j]])
+                        x_y_list.append([x,y])
+                else:
+                    continue
+            elif params_singular == 2: #append complement to calculate convex hull
+                if(self.hpd_nodes[i] == 0) and (self.subdivided[i] != 1):
+                    for j in range(3):
+                        x, y = bc2xy(self.vertices[self.triangles[i][j]])
+                        x_y_list.append([x,y])
         hull = ConvexHull(x_y_list)
         hull_vertices_p1 = np.append(hull.vertices, hull.vertices[0])
         plt.plot(hull.points[hull_vertices_p1,0], hull.points[hull_vertices_p1, 1], 'g-', lw=2, label="HPD Boundary")
@@ -1086,31 +1104,55 @@ class Dirichlet_Distribution:
         hull = self.getHPDBoundary()
         hull = LineString(hull)
         hull = hull.convex_hull
+
         l1 = LineString([(x0, y0), (mp.mpf(0.5), mp.mpf(mp.sqrt(3)/2))])
         l2 = LineString([(x0, y0), (0, 0)])
         l3 = LineString([(x0, y0), (1, 0)])
-        int1 = shapely.intersection(hull, l1)
-        print(int1)
-        xs, ys = int1.xy
-        if (self.getDistance([xs[0], ys[0]], [x0, y0]) > self.getDistance([xs[1], ys[1]], [x0, y0])):
-            self.extremals[0] = [xs[0], ys[0]]
-        else:
-            self.extremals[0] = [xs[1], ys[1]]
-        int2 = shapely.intersection(hull, l2)
-                #print(len(int1.geoms), type(int1.geoms[0].x))
-        xs, ys = int2.xy
-        if (self.getDistance([xs[0], ys[0]], [x0, y0]) > self.getDistance([xs[1], ys[1]], [x0, y0])):
-            self.extremals[1] = [xs[0], ys[0]]
-        else:
-            self.extremals[1] = [xs[1], ys[1]]
-        int3 = shapely.intersection(hull, l3)
-        xs, ys = int3.xy
-        if (self.getDistance([xs[0], ys[0]], [x0, y0]) > self.getDistance([xs[1], ys[1]], [x0, y0])):
-            self.extremals[2] = [xs[0], ys[0]]
-        else:
-            self.extremals[2] = [xs[1], ys[1]]
-        #print(f"hull.boundary is {hull.boundary}")
 
+        int1 = shapely.intersection(hull, l1)
+        xs1, ys1 = int1.xy #intersection points
+        int2 = shapely.intersection(hull, l2)
+        xs2, ys2 = int2.xy
+        int3 = shapely.intersection(hull, l3)
+        xs3, ys3 = int3.xy
+
+        if(self.singularParams <2):
+            if (self.getDistance([xs1[0], ys1[0]], [x0, y0]) > self.getDistance([xs1[1], ys1[1]], [x0, y0])):
+                self.extremals[0] = [xs1[0], ys1[0]]
+            else:
+                self.extremals[0] = [xs1[1], ys1[1]]
+        
+            if (self.getDistance([xs2[0], ys2[0]], [x0, y0]) > self.getDistance([xs2[1], ys2[1]], [x0, y0])):
+                self.extremals[1] = [xs2[0], ys2[0]]
+            else:
+                self.extremals[1] = [xs2[1], ys2[1]]
+        
+            if (self.getDistance([xs3[0], ys3[0]], [x0, y0]) > self.getDistance([xs3[1], ys3[1]], [x0, y0])):
+                self.extremals[2] = [xs3[0], ys3[0]]
+            else:
+                self.extremals[2] = [xs3[1], ys3[1]]
+
+        elif(self.singularParams == 2):
+            if(len(xs1) == 0):
+                self.extremals[0] = [mp.mpf(0.5), mp.sqrt(3)/2]
+            elif (self.getDistance([xs1[0], ys1[0]], [x0, y0]) > self.getDistance([xs1[1], ys1[1]], [x0, y0])):
+                self.extremals[0] = [xs1[1], ys1[1]]
+            else:
+                self.extremals[0] = [xs1[0], ys1[0]]                
+
+            if(len(xs2) == 0):
+                self.extremals[1] = [0, 0]
+            elif (self.getDistance([xs2[0], ys2[0]], [x0, y0]) > self.getDistance([xs2[1], ys2[1]], [x0, y0])):
+                self.extremals[1] = [xs2[1], ys2[1]]
+            else:
+                self.extremals[1] = [xs2[0], ys2[0]]
+
+            if(len(xs3) == 0):
+                self.extremals[2] = [1, 0]
+            elif (self.getDistance([xs3[0], ys3[0]], [x0, y0]) > self.getDistance([xs3[1], ys3[1]], [x0, y0])):
+                self.extremals[2] = [xs3[1], ys3[1]]
+            else:
+                self.extremals[2] = [xs3[0], ys3[0]]
 
 
     
